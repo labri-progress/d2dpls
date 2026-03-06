@@ -24,6 +24,6 @@ abstract: >-
   An experimental platform for device-to-device physical
   layer security
 license: CC-BY-NC-SA-4.0
-commit: e2c5ee117dd162c15f1aeb607446a4c0ace2860c
+commit: 5d3cc130ac789507a8f48e793317ee37d40d9a21
 version: v1.0
 date-released: '2026-03-01'
