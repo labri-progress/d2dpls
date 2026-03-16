@@ -128,6 +128,8 @@ When adding a new source file, you need to do two different things (and do those
 
 The first steps creates the obj file for the added sources, the second one links the obj file to the firmware (this step happens in STM32CubeIDE/cmwx1zzabz\_0xx/(Debug | Release)/makefile).
 
+![stm32-flash screenshot, shows the choice between two connected boards](./D2DPLS-stm32-flash.png "stm32-flash screenshot")
+
 ### Configuring
 
 The `stm32-cli` directory contains another tool (`Rust` again) which allows configuring the board using a simple command line interface.
@@ -139,15 +141,18 @@ It allows:
     - CSI type 
 - Configuring Telemetry
 - Configuring Radio (LoRa SF, BW, tx power)
-- Loading CSI values to the board *(WIP)*
+- Loading CSI values to the board
 - Monitor Telemetry logging (optionnaly save telemetry data to files)
 
 The tool reset the board on configuration. Alternatively, you can only monitor the telemetry data without resetting the board.
 
 You should be able to figure out how to use the tool by looking at the help.
 ```bash
-cargo r --release -- -h
+./stm32-cli  # if at the root of the repository
+cargo r --release  # if in the tools/log-analyzer directory
 ```
+
+![stm32-cli screenshot](./D2DPLS-stm32-cli.png "stm32-cli configuration process")
 
 ### Analyzing the logs
 The `log-analyzer` tool allows you to take two log files (Alice and Bob logs) or one single file (either Alice or Bob logs) from an experiment and extract meaningful metrics.
@@ -174,7 +179,6 @@ docker run --privileged --rm -i -v ./path/to/config.toml:/root/config.toml physe
 ```
 
 Due to impossibility for using udev in docker, you need to run the container in **privileged** mode and connect **only one** STM32 device to your computer.
-
 
 ## Implementation
 

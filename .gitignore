@@ -2,6 +2,9 @@
 **/*Release.launch
 **/language.settings.xml
 
+.cache
+compile_commands.json
+
 /log-analyzer
 /stm32-cli
 /stm32-flash

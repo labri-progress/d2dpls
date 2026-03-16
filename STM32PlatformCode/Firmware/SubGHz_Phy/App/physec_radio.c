@@ -92,7 +92,7 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
   // }
   // tm_plog(TS_OFF, VLEVEL_H, "\n\r");
   /* Run PingPong process in background*/
-  tm_plog(TS_ON, VLEVEL_L, "< received %lu bits.", size);
+  tm_plog(TS_ON, VLEVEL_L, "< received %lu bytes.", size);
   UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process), CFG_SEQ_Prio_0);
   /* USER CODE END OnRxDone */
 }
@@ -125,7 +125,7 @@ void OnRxTimeout(void) {
   /* USER CODE BEGIN OnRxTimeout */
   // tm_plog(TS_ON, VLEVEL_L, "OnRxTimeout\n\r");
   /* Update the State of the FSM*/
-  tm_plog(TS_ON, VLEVEL_L, "RxError\n\r");
+  tm_plog(TS_ON, VLEVEL_L, "RxTimeout\n\r");
   State = RX_TIMEOUT;
   /* Run PingPong process in background*/
   UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process), CFG_SEQ_Prio_0);

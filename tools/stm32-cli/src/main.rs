@@ -11,6 +11,7 @@ use menus::{
 
 use std::{
     any::Any,
+    env::{self, current_exe},
     fmt::{format, Display, Error},
     fs::{self, File, OpenOptions},
     io::{Read, Seek, Write},
@@ -128,10 +129,10 @@ struct Args {
     #[clap(
         short = 'C',
         long,
-        default_value = "./config_files",
-        help = "Directory containing PHYsec configuration files"
+        help = "Directory containing PHYsec configuration files",
+        required = false
     )]
-    config_dir: String,
+    config_dir: Option<String>,
     #[clap(
         short,
         long,
@@ -330,13 +331,52 @@ fn main() {
                 .items(&MAIN_MENU_CHOICES[..])
                 .interact()
                 .unwrap();
+            // === Finding where lies config_files
+            // the issue is that using "./config_files" means if started with the symlink then
+            // "./config_files" does not exist, thus causing a panic!
+            // easiest way to fix that was to get the executable absolute path and navigate to
+            // config_files, assuming nothing was changed in the path (if the user decided to
+            // change paths, we assume he can use -C ^^)
+
+            let config_dir: Result<String, String> = match args.config_dir {
+                Some(ref cfg) => Ok(cfg.to_string()),
+                None => (|| -> Result<String, String> {
+                    let current_exe = std::env::current_exe().expect(
+                        "failed to retrieve current executable name. this is probably an OS issue",
+                    );
+
+                    let current_exe_path = current_exe
+                        .parent()
+                        .ok_or_else(|| "failed to get parent directory".to_string())?
+                        .parent()
+                        .ok_or_else(|| "failed to get grandparent directory".to_string())?
+                        .parent()
+                        .ok_or_else(|| "failed to get great-grandparent directory".to_string())?;
+
+                    let dir_entries = current_exe_path
+                        .read_dir()
+                        .map_err(|e| format!("failed to open directory: {}", e))?;
+
+                    for entry_result in dir_entries {
+                        let entry = entry_result
+                            .map_err(|e| format!("error reading directory entry: {}", e))?;
+
+                        if entry.file_name() == "config_files" {
+                            return Ok(entry.path().to_string_lossy().into_owned());
+                        }
+                    }
+
+                    Err("Couldn't find default config dir".to_string())
+                })(),
+            };
+            let config_dir = config_dir.unwrap();
 
             let packets = match choice {
                 MENU_IDX_KEYGEN => keygen_configuration(),
                 MENU_IDX_TELEMETRY => telemetry_configuration(),
                 MENU_IDX_RADIO => radio_configuration(),
                 MENU_IDX_LOADCSI => load_csi(),
-                MENU_IDX_LOADCONFIG => load_config_file(&args.config_dir),
+                MENU_IDX_LOADCONFIG => load_config_file(&config_dir),
                 _ => {
                     break;
                 }

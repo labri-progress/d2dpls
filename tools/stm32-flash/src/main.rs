@@ -9,7 +9,7 @@ use probe_rs::{
 };
 use probe_rs::gdb_server;
 use std::sync::{Arc};
-use lock_api::{ Mutex, RawMutexFair };
+use lock_api::{ Mutex };
 
 const STLINK_VID: u16 = 0x0483;
 const STLINK_PIDS: [u16; 8] = [
@@ -104,7 +104,7 @@ fn main() {
 
 fn start_gdb_server(stm32: DebugProbeInfo) {
     plog!("Starting GDB server...");
-    let mut probe = match stm32.open() {
+    let probe = match stm32.open() {
         Ok(p) => p,
         Err(e) => {
             perr!("Error opening probe: {}", e);
@@ -121,7 +121,7 @@ fn start_gdb_server(stm32: DebugProbeInfo) {
     };
     
     let gdb_conf = gdb_server::GdbInstanceConfiguration::from_session(&session, None::<String>);
-    let confs = vec![&gdb_conf];
+    //let confs = vec![&gdb_conf];
 
     let lock = Mutex::new(session);
 

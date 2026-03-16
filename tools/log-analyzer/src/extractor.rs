@@ -188,7 +188,7 @@ impl Extractor {
         })?;
 
         let received_bits_regex = Regex::new(&format!(
-            r"(?m)^{} {} < received (\d+) bits.$",
+            r"(?m)^{} {} < received (\d+) bytes.$",
             Self::HOST_TIMESTAMP_REGEX,
             Self::DEVICE_TIMESTAMP_REGEX,
         ))

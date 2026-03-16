@@ -385,7 +385,7 @@ pub(crate) fn load_config_file(config_dir: &str) -> Option<Vec<PHYsecConfigPacke
     for entry in std::fs::read_dir(config_dir).unwrap() {
         let entry = entry.unwrap();
         let filepath = entry.path();
-        if filepath.extension().unwrap() != "toml" {
+        if filepath.extension().expect("Couldn't find config files") != "toml" {
             continue;
         }
 

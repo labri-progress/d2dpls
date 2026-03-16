@@ -262,7 +262,7 @@ impl fmt::Display for SingleParticipantKeyGeneration {
         writeln!(f, "\tTotal Elapsed Time: {:.2}s", self.duration_s)?;
         writeln!(
             f,
-            "\tTotal Number Of Received Bits: {} bits",
+            "\tTotal Number Of Received Bytes: {} bytes",
             self.received_bits
         )?;
         writeln!(f, "Post Quantization Key:   {}", self.post_quantization)?;
@@ -593,7 +593,7 @@ impl fmt::Display for KeyGeneration {
         write!(f, "\n\tTotal Elapsed Time: {:.2}s", self.duration_s)?;
         write!(
             f,
-            "\n\tTotal Number Of Received Bits From:\n\t\tAlice: {} bits\n\t\tBob: {} bits",
+            "\n\tTotal Number Of Received Bytes From:\n\t\tAlice: {} bytes\n\t\tBob: {} bytes",
             self.received_bits.alice, self.received_bits.bob
         )?;
         write!(f, "\n\tKey Generation Rate: {:.2}bps", self.kgr)?;

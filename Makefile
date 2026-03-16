@@ -60,7 +60,7 @@ $(STM32_FLASH):
 	cd tools/stm32-flash && \
 		cargo build --release && \
 		cd ../.. && \
-		ln -sf ./tools/stm32-flash/target/release/probe-flash-stm32 $@
+		ln -sf ./tools/stm32-flash/target/release/stm32-flash $@
 
 $(LOG_ANALYZER):
 	cd tools/log-analyzer && \
