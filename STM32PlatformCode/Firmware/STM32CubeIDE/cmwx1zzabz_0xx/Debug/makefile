@@ -74,7 +74,7 @@ main-build: cmwx1zzabz_0xx.elf secondary-outputs
 
 # Tool invocations
 cmwx1zzabz_0xx.elf cmwx1zzabz_0xx.map: $(OBJS) $(USER_OBJS) ../STM32L072CZTx_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc  -o "cmwx1zzabz_0xx.elf" @"objects.list" $(USER_OBJS) $(LIBS) $(CRYPTO_LIB_STATIC) -mcpu=cortex-m0plus -T"../STM32L072CZTx_FLASH.ld" --specs=nosys.specs -Wl,-Map="cmwx1zzabz_0xx.map" -Wl,--gc-sections -static  -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc  -o "cmwx1zzabz_0xx.elf" @"objects.list" $(USER_OBJS) $(LIBS) $(CRYPTO_LIB_STATIC) -mcpu=cortex-m0plus -T"../STM32L072CZTx_FLASH.ld" --specs=nosys.specs --specs=nano.specs -Wl,-Map="cmwx1zzabz_0xx.map" -Wl,--gc-sections -static -u _printf_float -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

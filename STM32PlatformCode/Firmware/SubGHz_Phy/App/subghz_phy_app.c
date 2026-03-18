@@ -298,6 +298,24 @@ void SubghzApp_Init(void) {
   }
 
   if (num_csi > 0) {
+    // getting to the right number of CSI, as if they were obtained through
+    // probing.
+    if (physec_conf.keygen.quant_type == QUANT_MBR_LOSSLESS) {
+      // first of all we check if it is even possible to quantize
+      if (measurements_sufficiency_check_mbr_lossless(csi_measures, num_csi)) {
+        // then we find the minimum amount of CSI we need
+        bool found_min_num_csi = false;
+        for (int required_csi = 0; required_csi < num_csi && !found_min_num_csi;
+             required_csi++) {
+          if (measurements_sufficiency_check_mbr_lossless(csi_measures,
+                                                          required_csi)) {
+            // we found the minimum number of CSI required
+            num_csi = required_csi;
+            found_min_num_csi = true;
+          }
+        }
+      }
+    }
     probe_cnt = num_csi;
     tm_plog(TS_ON, VLEVEL_M, "CSI INIT:\r\n");
     tm_send_csis(csi_measures, num_csi);
@@ -568,12 +586,15 @@ static int handle_keygen(physec_keygen_packet_t *kg_pkt, bool master) {
 static bool do_keygen(void) {
 
   int quant_ret = pre_process_and_quantize();
-    tm_plog(TS_ON, VLEVEL_L, "nb of bits in the physec_key returned by pre_process_and_quantize = %d bits:\r\n", quant_ret );
+  tm_plog(TS_ON, VLEVEL_L,
+          "nb of bits in the physec_key returned by pre_process_and_quantize = "
+          "%d bits:\r\n",
+          quant_ret);
   if (quant_ret < REQUIRED_NUM_BITS_PER_KEY) {
     return false;
   }
   tm_plog(TS_ON, VLEVEL_L, "CSI do keygen:\r\n");
-  
+
   tm_send_csis(csi_measures, num_csi);
   tm_send_key_info(KEY_TYPE_QUANT, physec_key, physec_key_num_bits);
   // physec_key_num_bits = quant_ret;
@@ -593,8 +614,6 @@ static bool do_keygen(void) {
 
   return true;
 }
-
-
 
 static void do_post_processing(void) {
   // display indexes
@@ -705,8 +724,9 @@ int handle_probe(physec_probe_packet_t *probe_resp, bool is_master) {
     last_added_num_reg_rssis = kept_rssi;
     break;
   case CSI_PACKET_RSSI:
-      csi_measures[num_csi++] =  (-1) * normalize_csi(RssiValue);
-     tm_plog(TS_ON, VLEVEL_L, "> RssiValue raw: %d\n", ((-1) * normalize_csi(RssiValue)));
+    csi_measures[num_csi++] = (-1) * normalize_csi(RssiValue);
+    tm_plog(TS_ON, VLEVEL_L, "> RssiValue raw: %d\n",
+            ((-1) * normalize_csi(RssiValue)));
     last_added_num_reg_rssis = 1;
     break;
   case CSI_CLSSI:
@@ -889,57 +909,59 @@ keep_going:
         if (quant_status == QUANT_STATUS_FAILURE)
           quant_status = QUANT_STATUS_WAITING;
         physec_state = PHYSEC_STATE_PROBING;
-        // Instead of using the type of the quant to do the verification we need to add a more general verifcation like if multi_bits_quant  
-         if (physec_conf.keygen.is_master) {
+        // Instead of using the type of the quant to do the verification we need
+        // to add a more general verifcation like if multi_bits_quant
+        if (physec_conf.keygen.is_master) {
           probe_cnt++;
           csi_t *rssi_measures = csi_measures;
           if (num_csi_more > 0) {
             num_csi_more--;
-          } else if ( (physec_conf.keygen.quant_type == QUANT_MBR_LOSSLESS) &&
-            measurements_sufficiency_check_mbr_lossless(rssi_measures, num_csi) ) {
-           if(do_keygen()){
-            tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
-                    physec_key_num_bits);
-            tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
-            for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
-              if (i == AES_KEY_SIZE_IN_BYTES - 1) {
-                tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
-              } else {
-                tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
-              }
-            }
-
-            goto go_to_rx;
-          } else {
-            if (num_csi >= NUM_MAX_CSI) {
-              reset_handler(KG_RST_REQ);
-            }
-          }
-          } else if ( (physec_conf.keygen.quant_type == QUANT_SB_LOSSLESS) &&
-           (num_csi >= 128) ) {
-           if(do_keygen()){
-            tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
-                    physec_key_num_bits);
-            tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
-            for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
-              if (i == AES_KEY_SIZE_IN_BYTES - 1) {
-                tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
-              } else {
-                tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
-              }
-            }
-
-            goto go_to_rx;
-          } else {
-            if (num_csi >= NUM_MAX_CSI) {
-              reset_handler(KG_RST_REQ);
-            }
-          }
-          } else {
-                      // if the number of the measurements is not sufficient we do nothing!
-                      tm_plog(TS_ON, VLEVEL_H, ">> Need to do more probing! \n\r");
+          } else if ((physec_conf.keygen.quant_type == QUANT_MBR_LOSSLESS) &&
+                     measurements_sufficiency_check_mbr_lossless(rssi_measures,
+                                                                 num_csi)) {
+            if (do_keygen()) {
+              tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
+                      physec_key_num_bits);
+              tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
+              for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
+                if (i == AES_KEY_SIZE_IN_BYTES - 1) {
+                  tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
+                } else {
+                  tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
                 }
-                
+              }
+
+              goto go_to_rx;
+            } else {
+              if (num_csi >= NUM_MAX_CSI) {
+                reset_handler(KG_RST_REQ);
+              }
+            }
+          } else if ((physec_conf.keygen.quant_type == QUANT_SB_LOSSLESS) &&
+                     (num_csi >= 128)) {
+            if (do_keygen()) {
+              tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
+                      physec_key_num_bits);
+              tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
+              for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
+                if (i == AES_KEY_SIZE_IN_BYTES - 1) {
+                  tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
+                } else {
+                  tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
+                }
+              }
+
+              goto go_to_rx;
+            } else {
+              if (num_csi >= NUM_MAX_CSI) {
+                reset_handler(KG_RST_REQ);
+              }
+            }
+          } else {
+            // if the number of the measurements is not sufficient we do
+            // nothing!
+            tm_plog(TS_ON, VLEVEL_H, ">> Need to do more probing! \n\r");
+          }
         }
 
         send_probe(probe_cnt);

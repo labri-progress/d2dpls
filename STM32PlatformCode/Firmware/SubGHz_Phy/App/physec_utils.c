@@ -191,7 +191,6 @@ int pre_process_and_quantize(void) {
     // send filtered csis
     tm_send_csis(measures_start, num_rem_csi);
   }
-  
 
   size_t cur_num_information_bits = 0;
   for (size_t i = 0; i < num_blocks; i++) {
@@ -284,18 +283,23 @@ int pre_process_and_quantize(void) {
     if (whole + ret > KEY_CAPACITY_IN_BYTES * 8) {
       ret = KEY_CAPACITY_IN_BYTES * 8 - whole;
     }
-       
-// Add quantized bits to the physec_key (for blockwise quantization)
-// or update the entire physec_key (for non-blockwise quantization)
 
-  if (blockwise_quant) {
-              add_quantized_bits_to_physec_key(key_chunk, ret);
-              tm_plog(TS_ON, VLEVEL_L, "> From (%d measures) => %d bits added to physec_key => current physec_key size = %d bits \n\r", blocksize, cur_num_information_bits, cur_num_information_bits + physec_key_num_bits  );
-        
-  } else {
-          update_physec_key(key_chunk, ret);
-          tm_plog(TS_ON, VLEVEL_L, "> Current physec_key size = %d bits \n\r", physec_key_num_bits );
-  }
+    // Add quantized bits to the physec_key (for blockwise quantization)
+    // or update the entire physec_key (for non-blockwise quantization)
+
+    if (blockwise_quant) {
+      add_quantized_bits_to_physec_key(key_chunk, ret);
+      tm_plog(TS_ON, VLEVEL_L,
+              "> From (%d measures) => %d bits added to physec_key => current "
+              "physec_key size = %d bits \n\r",
+              blocksize, cur_num_information_bits,
+              cur_num_information_bits + physec_key_num_bits);
+
+    } else {
+      update_physec_key(key_chunk, ret);
+      tm_plog(TS_ON, VLEVEL_L, "> Current physec_key size = %d bits \n\r",
+              physec_key_num_bits);
+    }
     if (excursion_quant) {
       num_total_information_bits = num_indexes;
     } else {
@@ -308,30 +312,30 @@ int pre_process_and_quantize(void) {
     cur_num_indexes = NUM_MAX_LOSSY - num_indexes;
     num_quantized_csi += blocksize;
   }
-  
-//This part is exc only when the physec key size is bigger or eqauls 128bits
+
+// This part is exc only when the physec key size is bigger or eqauls 128bits
 quant_wrapper_end:
-    if (physec_key_num_bits > 128) {
+  if (physec_key_num_bits > 128) {
     tm_plog(TS_ON, VLEVEL_L, "physec_key before truncation = [ ");
     for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
-        if (i == AES_KEY_SIZE_IN_BYTES - 1) {
-          tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
-        } else {
-          tm_plog(TS_OFF, VLEVEL_L, "%02x,", physec_key[i]);
-        }
+      if (i == AES_KEY_SIZE_IN_BYTES - 1) {
+        tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
+      } else {
+        tm_plog(TS_OFF, VLEVEL_L, "%02x,", physec_key[i]);
       }
-      tm_plog(TS_ON, VLEVEL_L, "> Key is full. Stopping quantization.\n\r");
-       truncate_physec_key(physec_key_num_bits); // Truncate the physec_key
-         tm_plog(TS_ON, VLEVEL_L, "Truncated physec_key = [ ");
-    for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
-        if (i == AES_KEY_SIZE_IN_BYTES - 1) {
-          tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
-        } else {
-          tm_plog(TS_OFF, VLEVEL_L, "%02x,", physec_key[i]);
-        }
-      }
-      physec_key_num_bits = 128; 
     }
+    tm_plog(TS_ON, VLEVEL_L, "> Key is full. Stopping quantization.\n\r");
+    truncate_physec_key(physec_key_num_bits); // Truncate the physec_key
+    tm_plog(TS_ON, VLEVEL_L, "Truncated physec_key = [ ");
+    for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
+      if (i == AES_KEY_SIZE_IN_BYTES - 1) {
+        tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
+      } else {
+        tm_plog(TS_OFF, VLEVEL_L, "%02x,", physec_key[i]);
+      }
+    }
+    physec_key_num_bits = 128;
+  }
   if (excursion_quant) {
     // num_indexes is the number of information bits
     return num_indexes;
@@ -355,10 +359,12 @@ void add_quantized_bits_to_physec_key(uint8_t *key_chunk, size_t chunksize) {
     physec_key_num_bits += chunksize;
   }
 }
-void update_physec_key(uint8_t *new_physec_key, size_t size_new_physec_key_in_bits) {
-    memset(physec_key, 0, KEY_CAPACITY_IN_BYTES);     // Clear the old key
-    memcpy(physec_key, new_physec_key, size_new_physec_key_in_bits);   // Copy in the new key
-    physec_key_num_bits = size_new_physec_key_in_bits;
+void update_physec_key(uint8_t *new_physec_key,
+                       size_t size_new_physec_key_in_bits) {
+  memset(physec_key, 0, KEY_CAPACITY_IN_BYTES); // Clear the old key
+  memcpy(physec_key, new_physec_key,
+         size_new_physec_key_in_bits); // Copy in the new key
+  physec_key_num_bits = size_new_physec_key_in_bits;
 }
 
 /* void truncate_physec_key(size_t physec_key_size_in_bits)
@@ -375,7 +381,7 @@ void update_physec_key(uint8_t *new_physec_key, size_t size_new_physec_key_in_bi
 
     for (size_t bit = 0; bit < KEEP_BITS; bit++) {
         size_t src_byte = bit / 8;
-        size_t src_bit  = 7 - (bit % 8);   
+        size_t src_bit  = 7 - (bit % 8);
 
         size_t dst_byte = bit / 8;
         size_t dst_bit  = 7 - (bit % 8);
@@ -385,7 +391,7 @@ void update_physec_key(uint8_t *new_physec_key, size_t size_new_physec_key_in_bi
     }
 
     // Replace physec_key with the truncated key
-   
+
     memset(physec_key, 0, KEY_CAPACITY_IN_BYTES);
     memcpy(physec_key, out, KEEP_BYTES);
 
@@ -395,34 +401,38 @@ void update_physec_key(uint8_t *new_physec_key, size_t size_new_physec_key_in_bi
 */
 // This function is used to only keep the last 128 bits of physec_key
 
-void truncate_physec_key(size_t physec_key_size_in_bits)
-{
-    const size_t KEEP_BITS = 128;            
-    const size_t KEEP_BYTES = KEEP_BITS / 8;
-    // If the key is already 128 bits or smaller, do nothing
-    if (physec_key_size_in_bits <= KEEP_BITS)
-        return;
-        
-    size_t bit_offset = physec_key_size_in_bits - KEEP_BITS;     //How many bits to skip at the start to keep only last 128 bits
-    size_t byte_offset = bit_offset / 8;                         // How many whole bytes we can skip
-    size_t shift = bit_offset % 8;                            //  shift "shift" bits inside first byte
+void truncate_physec_key(size_t physec_key_size_in_bits) {
+  const size_t KEEP_BITS = 128;
+  const size_t KEEP_BYTES = KEEP_BITS / 8;
+  // If the key is already 128 bits or smaller, do nothing
+  if (physec_key_size_in_bits <= KEEP_BITS)
+    return;
 
-    uint8_t out[KEEP_BYTES]; 
+  size_t bit_offset =
+      physec_key_size_in_bits - KEEP_BITS; // How many bits to skip at the start
+                                           // to keep only last 128 bits
+  size_t byte_offset = bit_offset / 8; // How many whole bytes we can skip
+  size_t shift = bit_offset % 8;       //  shift "shift" bits inside first byte
 
-    for (size_t i = 0; i < KEEP_BYTES; i++) {
-        uint8_t b1 = physec_key[byte_offset + i] << shift; // lowest bits of physec_key[byte_offset + i] to higher bits of b1.
-        uint8_t b2 = 0;
+  uint8_t out[KEEP_BYTES];
 
-        if (shift != 0)
-            b2 = physec_key[byte_offset + i + 1] >> (8 - shift); //higest bits of next byte to the lowest bits of b2
-        // Combine bits 
-        out[i] = b1 | b2;
-    }
-// physec_key truncated
-            memset(physec_key, 0, KEY_CAPACITY_IN_BYTES);     // Clear the old key
-        memcpy(physec_key, out, KEEP_BITS );   
+  for (size_t i = 0; i < KEEP_BYTES; i++) {
+    uint8_t b1 = physec_key[byte_offset + i]
+                 << shift; // lowest bits of physec_key[byte_offset + i] to
+                           // higher bits of b1.
+    uint8_t b2 = 0;
+
+    if (shift != 0)
+      b2 = physec_key[byte_offset + i + 1] >>
+           (8 - shift); // higest bits of next byte to the lowest bits of b2
+    // Combine bits
+    out[i] = b1 | b2;
+  }
+
+  // physec_key truncated
+  memset(physec_key, 0, KEY_CAPACITY_IN_BYTES); // Clear the old key
+  memcpy(physec_key, out, KEEP_BYTES);
 }
-
 
 /*!
  *	\brief Use vigenere algorithm (not secured) for encryption/decryption
