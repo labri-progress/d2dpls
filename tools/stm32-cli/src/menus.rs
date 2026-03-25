@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::config_parse::PLSConfig;
 use crate::packets::config::{PHYsecConfigPacket, PHYsecConfigType};
 use crate::packets::telemetry::PHYsecTelemetry;
-use crate::physec_bindings::physec_serial::PHYSEC_PROBE_DELAY_MAX;
+use crate::physec_bindings::physec_serial::{DEFAULT_KEYGEN_ID, PHYSEC_PROBE_DELAY_MAX};
 use crate::utils::*;
 
 use crate::packets::config::config_keygen::KeyGenConfigPacket;
@@ -32,15 +32,17 @@ pub const MAIN_MENU_CHOICES: [&str; 6] = [
 ];
 
 pub const MENU_KG_IDX_ROLE: usize = 0;
-pub const MENU_KG_IDX_CSI: usize = 1;
-pub const MENU_KG_IDX_PREPROCESS: usize = 2;
-pub const MENU_KG_IDX_QUANT: usize = 3;
-pub const MENU_KG_IDX_RECON: usize = 4;
-pub const MENU_KG_IDX_PROBE_PADDING: usize = 5;
-pub const MENU_KG_IDX_PROBE_DELAY: usize = 6;
+pub const MENU_KG_IDX_KEYGEN_ID: usize = 1;
+pub const MENU_KG_IDX_CSI: usize = 2;
+pub const MENU_KG_IDX_PREPROCESS: usize = 3;
+pub const MENU_KG_IDX_QUANT: usize = 4;
+pub const MENU_KG_IDX_RECON: usize = 5;
+pub const MENU_KG_IDX_PROBE_PADDING: usize = 6;
+pub const MENU_KG_IDX_PROBE_DELAY: usize = 7;
 
-pub const KEYGEN_MENU_CHOICES: [&str; 8] = [
+pub const KEYGEN_MENU_CHOICES: [&str; 9] = [
     "Set Role",
+    "Set Keygen ID",
     "Set CSI (pRSSI, regRSSI, arRSSI)",
     "Set Pre-Process method",
     "Set Quantization method",
@@ -133,6 +135,15 @@ pub(crate) fn choose_role() -> bool {
     choice != 0
 }
 
+pub(crate) fn choose_keygen_id() -> u8 {
+    let choice = dialoguer::Input::<u8>::new()
+        .default(DEFAULT_KEYGEN_ID)
+        .with_prompt("[-] Enter keygen identifier [0;255]")
+        .interact()
+        .unwrap();
+    choice
+}
+
 pub(crate) fn choose_csi() -> libphysec::csi_type_t {
     let choice = FuzzySelect::with_theme(&dialoguer::theme::ColorfulTheme::default())
         .with_prompt("[-] Choose CSI type")
@@ -191,6 +202,9 @@ pub(crate) fn keygen_configuration() -> Option<Vec<PHYsecConfigPacket>> {
         match choice {
             MENU_KG_IDX_ROLE => {
                 kg_conf.is_master = choose_role();
+            }
+            MENU_KG_IDX_KEYGEN_ID => {
+                kg_conf.keygen_id = choose_keygen_id();
             }
             MENU_KG_IDX_CSI => {
                 kg_conf.csi_type = choose_csi();
@@ -390,27 +404,31 @@ pub(crate) fn load_config_file(config_dir: &str) -> Option<Vec<PHYsecConfigPacke
         }
 
         let config = PLSConfig::from_file(filepath.to_str().unwrap());
-
-        let opt_name = match config.metadata.as_ref() {
-            Some(m) => {
-                if let Some(alias) = &m.title_alias {
-                    alias.clone()
-                } else {
-                    m.title.clone()
-                }
+        match config {
+            Ok(config) => {
+                let opt_name = match config.metadata.as_ref() {
+                    Some(m) => {
+                        if let Some(alias) = &m.title_alias {
+                            alias.clone()
+                        } else {
+                            m.title.clone()
+                        }
+                    }
+                    None => entry
+                        .path()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                };
+                let role = if config.is_master_config() { "M" } else { "S" };
+                let opt_name = format!("({}) {}", role, opt_name);
+                menu_options.push(opt_name);
+                configs.push(config);
             }
-            None => entry
-                .path()
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-        };
-        let role = if config.is_master_config() { "M" } else { "S" };
-        let opt_name = format!("({}) {}", role, opt_name);
-        menu_options.push(opt_name);
-        configs.push(config);
+            Err(e) => eprintln!("{e}"),
+        }
     }
 
     let mut combined: Vec<(&String, PLSConfig)> = menu_options

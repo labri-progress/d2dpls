@@ -6,6 +6,7 @@ physec_config physec_conf = {
     .keygen =
         {
             .is_master = IS_MASTER,
+            .keygen_id = DEFAULT_KEYGEN_ID,
             .csi_type = CSI_PACKET_RSSI,
             .pre_process_type = PREPROCESS_SAVITSKY_GOLAY,
             .quant_type = QUANT_MBR_LOSSLESS,
@@ -53,6 +54,7 @@ HAL_StatusTypeDef physec_config_write_eeprom(uint8_t offset_address, physec_conf
 
 	// keygen_config
 	buffer[offset++] = config->keygen.is_master;
+  buffer[offset++] = config->keygen.keygen_id;
 	buffer[offset++] = config->keygen.csi_type;
 	buffer[offset++] = config->keygen.pre_process_type;
 	buffer[offset++] = config->keygen.quant_type;
@@ -106,6 +108,7 @@ bool physec_config_read_eeprom(uint8_t offset_address, physec_config *config)
 	// keygen_config
 	offset = 0;
 	config->keygen.is_master = buffer[offset++] ;
+  config->keygen.keygen_id = buffer[offset++];
 	config->keygen.csi_type = buffer[offset++] ;
 	config->keygen.pre_process_type = buffer[offset++] ;
 	config->keygen.quant_type = buffer[offset++] ;

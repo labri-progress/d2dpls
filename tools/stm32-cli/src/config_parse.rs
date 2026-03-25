@@ -28,15 +28,12 @@ pub struct PLSConfig {
 }
 
 impl PLSConfig {
-    pub fn from_file(config_file: &str) -> Self {
+    pub fn from_file(config_file: &str) -> Result<Self, String> {
         let file_content = std::fs::read_to_string(config_file).unwrap();
 
         match toml::from_str(&file_content) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Error parsing config file: {}", e);
-                std::process::exit(1);
-            }
+            Ok(c) => Ok(c),
+            Err(e) => Err(format!("Error parsing config file `{}`: {}", config_file, e)),
         }
     }
 
@@ -49,7 +46,9 @@ impl PLSConfig {
             PHYsecConfigType::PHYsecConfigTelemetry,
             Some(Box::new(self.telemetry.clone())),
         );
-        let radio_conf = RadioConfigPacket::from_bytes(self.radio.to_bytes().as_slice()).unwrap().1;
+        let radio_conf = RadioConfigPacket::from_bytes(self.radio.to_bytes().as_slice())
+            .unwrap()
+            .1;
         let radio_pkt = PHYsecConfigPacket::new(
             PHYsecConfigType::PHYsecConfigRadio,
             Some(Box::new(radio_conf)),
@@ -70,8 +69,7 @@ impl PLSConfig {
 /// Returns a list of packets to send for configuring PHYsec on the STM32 board
 /// according to the config file
 pub fn process_config_file(config_file: &str) -> Vec<PHYsecConfigPacket> {
-
-    let config = PLSConfig::from_file(config_file);
+    let config = PLSConfig::from_file(config_file).unwrap();
     let kg_pkt = PHYsecConfigPacket::new(
         PHYsecConfigType::PHYsecConfigKeyGen,
         Some(Box::new(config.keygen.clone())),

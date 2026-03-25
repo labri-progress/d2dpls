@@ -147,15 +147,15 @@ void OnRxError(void) {
 ResetStates_t reset_state = NOT_RSTING;
 
 void send_rst(void) {
-  physec_packet_t *packet =
-      build_reset_packet(BufferTx, MAX_APP_BUFFER_SIZE, 0);
+  physec_packet_t *packet = build_reset_packet(
+      physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE, 0);
   Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
   tm_plog(TS_ON, VLEVEL_L, "Sent RST packet");
 }
 
 void send_rst_ack(void) {
-  physec_packet_t *packet =
-      build_reset_packet(BufferTx, MAX_APP_BUFFER_SIZE, 1);
+  physec_packet_t *packet = build_reset_packet(
+      physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE, 1);
   Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
   tm_plog(TS_ON, VLEVEL_L, "Sent RST ACK packet");
 }
@@ -294,8 +294,8 @@ void fe_stl_create_and_send_locks() {
          r_buf, AES_KEY_SIZE_IN_BYTES, FE_STL_SEC, AES_KEY_SIZE_IN_BYTES,
          &helpers, w_i_buf, &r_prng, &m_prng, &l_prng);
   physec_packet_t *pkt = build_recon_fe_stl_packet(
-      &helpers, BufferTx, MAX_APP_BUFFER_SIZE, AES_KEY_SIZE_IN_BYTES,
-      FE_STL_SEC, FE_STL_NUM_LOCKS_PER_TRY);
+      physec_conf.keygen.keygen_id, &helpers, BufferTx, MAX_APP_BUFFER_SIZE,
+      AES_KEY_SIZE_IN_BYTES, FE_STL_SEC, FE_STL_NUM_LOCKS_PER_TRY);
   recon_num_try += FE_STL_NUM_LOCKS_PER_TRY;
   memcpy(recon_key, r_buf, AES_KEY_SIZE_IN_BYTES);
 

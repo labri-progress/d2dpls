@@ -19,6 +19,11 @@
 #endif
 
 
+
+enum __attribute__((__packed__)) {
+  DEFAULT_KEYGEN_ID = (uint8_t)0x17,
+};
+
 enum __attribute__((__packed__)) {
   PHYSEC_PROBE_PADDING = (uint8_t)10,
 };
@@ -68,6 +73,7 @@ typedef struct __attribute__((__packed__)) {
 
 typedef struct __attribute__((__packed__)) {
 	uint8_t is_master;
+  uint8_t keygen_id;
 	uint8_t csi_type;
 	uint8_t pre_process_type;
 	uint8_t quant_type;

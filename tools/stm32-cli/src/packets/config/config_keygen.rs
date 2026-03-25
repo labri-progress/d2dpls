@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::physec_bindings::libphysec::{
     CSI_PACKET_RSSI, PREPROCESS_SAVITSKY_GOLAY, QUANT_MBR_LOSSLESS, RECON_ECC_SS, 
 };
-use crate::physec_bindings::physec_serial::{PHYSEC_PROBE_DELAY, PHYSEC_PROBE_PADDING};
+use crate::physec_bindings::physec_serial::{DEFAULT_KEYGEN_ID, PHYSEC_PROBE_DELAY, PHYSEC_PROBE_PADDING};
 
 use super::PHYsecPayload;
 
@@ -12,6 +12,7 @@ use super::PHYsecPayload;
 #[derive(Debug, Deserialize, Clone)]
 pub struct KeyGenConfigPacket {
     pub is_master: bool,
+    pub keygen_id: u8,
     pub csi_type: u8,
     pub pre_process_type: u8,
     pub quant_type: u8,
@@ -23,6 +24,7 @@ pub struct KeyGenConfigPacket {
 impl KeyGenConfigPacket {
     pub fn new(
         is_master: bool,
+        keygen_id: u8,
         csi_type: u8,
         pre_process_type: u8,
         quant_type: u8,
@@ -32,6 +34,7 @@ impl KeyGenConfigPacket {
     ) -> Self {
         Self {
             is_master,
+            keygen_id,
             csi_type,
             pre_process_type,
             quant_type,
@@ -50,6 +53,7 @@ impl Default for KeyGenConfigPacket {
     fn default() -> Self {
         Self {
             is_master: false,
+            keygen_id: DEFAULT_KEYGEN_ID,
             csi_type: CSI_PACKET_RSSI,
             pre_process_type: PREPROCESS_SAVITSKY_GOLAY,
             quant_type: QUANT_MBR_LOSSLESS,
@@ -64,6 +68,7 @@ impl PHYsecPayload for KeyGenConfigPacket {
     fn to_bytes(&self) -> Vec<u8> {
         [vec![
             self.is_master as u8,
+            self.keygen_id,
             self.csi_type,
             self.pre_process_type,
             self.quant_type,
@@ -76,6 +81,17 @@ impl PHYsecPayload for KeyGenConfigPacket {
     fn from_bytes(input: &[u8]) -> IResult<&[u8], Self> {
         let total_size = input.len();
         let (input, is_master) = take(1usize)(input).map_err(|e| match e {
+            nom::Err::Failure(nom::error::Error {
+                input,
+                code: nom::error::ErrorKind::Eof,
+            })
+            | nom::Err::Error(nom::error::Error {
+                input,
+                code: nom::error::ErrorKind::Eof,
+            }) => nom::Err::Incomplete(nom::Needed::new(total_size)),
+            other => other,
+        })?;
+        let (input, keygen_id) = take(1usize)(input).map_err(|e| match e {
             nom::Err::Failure(nom::error::Error {
                 input,
                 code: nom::error::ErrorKind::Eof,
@@ -160,6 +176,7 @@ impl PHYsecPayload for KeyGenConfigPacket {
             input,
             KeyGenConfigPacket {
                 is_master: is_master[0] != 0,
+                keygen_id: keygen_id[0],
                 csi_type: csi_type[0],
                 pre_process_type: pre_process_type[0],
                 quant_type: quant_type[0],

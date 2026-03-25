@@ -5,6 +5,7 @@ title = "LoRa-Based Physical Layer Key Generation for Secure V2V/V2I Communicati
 
 [keygen]
 is_master = true
+keygen_id = 23
 csi_type = 0
 pre_process_type = 1
 quant_type = 17

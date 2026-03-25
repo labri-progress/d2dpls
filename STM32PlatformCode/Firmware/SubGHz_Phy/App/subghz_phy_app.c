@@ -214,8 +214,6 @@ void SubghzApp_Init(void) {
   /*fills tx buffer*/
   memset(BufferTx, 0x0, MAX_APP_BUFFER_SIZE);
 
-  // tm_plog(TS_ON, VLEVEL_L, "rand=%id\n\r", random_delay);
-
   // EEPROM read config
   physec_config tmp_conf = {0};
   bool has_config = physec_config_read_eeprom(0, &tmp_conf);
@@ -277,6 +275,8 @@ void SubghzApp_Init(void) {
   tm_send_keygen_conf();
   tm_plog(TS_OFF, VLEVEL_M, "Role = %s\n\r",
           (physec_conf.keygen.is_master) ? "Master" : "Slave");
+  tm_plog(TS_OFF, VLEVEL_M, "Keygen ID = %d (0x%x)\n\r",
+          physec_conf.keygen.keygen_id, physec_conf.keygen.keygen_id);
   tm_plog(TS_OFF, VLEVEL_M, "DEBUG: CSI Type = %d\n\r",
           physec_conf.keygen.csi_type);
   tm_plog(TS_OFF, VLEVEL_M, "DEBUG: Quant Type = %d\n\r",
@@ -392,9 +392,9 @@ static void post_process_send_indexes(lossy_chunk_bitmap_t to_send) {
           (i == num_chunks - 1) ? (num_indexes - i * MAX_LOSSY_PER_RADIO_FRAME)
                                 : MAX_LOSSY_PER_RADIO_FRAME;
       quant_index_t *indexes_chunk = indexes + i * MAX_LOSSY_PER_RADIO_FRAME;
-      physec_packet_t *packet =
-          build_keygen_data_packet(i, indexes_chunk, num_indexes_chunk,
-                                   num_indexes, BufferTx, MAX_APP_BUFFER_SIZE);
+      physec_packet_t *packet = build_keygen_data_packet(
+          physec_conf.keygen.keygen_id, i, indexes_chunk, num_indexes_chunk,
+          num_indexes, BufferTx, MAX_APP_BUFFER_SIZE);
 
       Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
 
@@ -606,8 +606,8 @@ static bool do_keygen(void) {
     time_last_pp_send_all = HAL_GetTick();
     physec_state = PHYSEC_STATE_POST_KEYGEN_SEND;
   } else {
-    physec_packet_t *packet =
-        build_keygen_success_packet_lossless(BufferTx, MAX_APP_BUFFER_SIZE);
+    physec_packet_t *packet = build_keygen_success_packet_lossless(
+        physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
     Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
     physec_state = PHYSEC_STATE_KEYGEN;
   }
@@ -737,7 +737,8 @@ int handle_probe(physec_probe_packet_t *probe_resp, bool is_master) {
 }
 void send_probe(uint32_t counter) {
   physec_packet_t *packet = build_probe_packet(
-      counter, physec_conf.keygen.probe_padding, BufferTx, MAX_APP_BUFFER_SIZE);
+      physec_conf.keygen.keygen_id, counter, physec_conf.keygen.probe_padding,
+      BufferTx, MAX_APP_BUFFER_SIZE);
 
   if (physec_conf.keygen.is_master)
     HAL_Delay(physec_conf.keygen.probe_delay);
@@ -746,18 +747,23 @@ void send_probe(uint32_t counter) {
   memset(BufferTx, 0, MAX_APP_BUFFER_SIZE);
 }
 
-bool physec_validate_packet(uint8_t *packet, size_t size) {
+physec_packet_validity_e physec_validate_packet(uint8_t *packet, size_t size) {
   if (size < sizeof(physec_packet_t)) {
-    return false;
+    return PHYSEC_UNKNOWN_PACKET;
   }
 
   size -= sizeof(physec_packet_t);
 
   physec_packet_t *pkt = (physec_packet_t *)packet;
+
+  // checking it is related to our current keygen
+  if (pkt->keygen_id != physec_conf.keygen.keygen_id) {
+    return PHYSEC_UNRELATED_PACKET;
+  }
   switch (pkt->type) {
   case PHYSEC_PACKET_TYPE_PROBE:
     if (size < sizeof(physec_probe_packet_t)) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
     // we have no need of checking padding bytes
     // other than for being sure packet was not corrupted
@@ -771,24 +777,24 @@ bool physec_validate_packet(uint8_t *packet, size_t size) {
     break;
   case PHYSEC_PACKET_TYPE_KEYGEN:
     if (size < sizeof(physec_keygen_packet_t)) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
 
     physec_keygen_packet_t *kg_pkt = (physec_keygen_packet_t *)&(pkt->data);
     switch (kg_pkt->kg_type) {
     case PHYSEC_KEYGEN_TYPE_DATA:
       if (size < PHYSEC_PACKET_KEYGEN_DATA_HEADER_SIZE) {
-        return false;
+        return PHYSEC_INVALID_PACKET;
       }
       size -= PHYSEC_PACKET_KEYGEN_DATA_HEADER_SIZE;
       physec_keygen_data_t *kg_data = (physec_keygen_data_t *)&(kg_pkt->data);
       if (kg_data->dropped_chunk_id >= MAX_LOSSY_CHUNKS)
-        return false;
+        return PHYSEC_INVALID_PACKET;
 
       break;
     case PHYSEC_KEYGEN_TYPE_RETRANSMISSION_REQ:
       if (size < sizeof(physec_keygen_retransmission_req_t)) {
-        return false;
+        return PHYSEC_INVALID_PACKET;
       }
       break;
     case PHYSEC_KEYGEN_TYPE_ERROR:
@@ -798,40 +804,40 @@ bool physec_validate_packet(uint8_t *packet, size_t size) {
     break;
   case PHYSEC_PACKET_TYPE_RECONCILIATION:
     if (size < sizeof(physec_recon_packet_t)) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
 
     physec_recon_packet_t *recon_pkt = (physec_recon_packet_t *)&(pkt->data);
     if (size < recon_pkt->rec_vec_size) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
 
     break;
   case PHYSEC_PACKET_TYPE_ENCRYPTED:
     if (size < sizeof(physec_encrypted_packet_t)) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
 
     physec_encrypted_packet_t *enc_pkt =
         (physec_encrypted_packet_t *)&(pkt->data);
     if (size < enc_pkt->size) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
 
     break;
   case PHYSEC_PACKET_TYPE_RECONCILIATION_RESULT:
     if (size < sizeof(physec_recon_result_packet_t)) {
-      return false;
+      return PHYSEC_INVALID_PACKET;
     }
-    return true;
+    return PHYSEC_VALID_PACKET;
     break;
   case PHYSEC_PACKET_TYPE_RESET:
-    return true;
+    return PHYSEC_VALID_PACKET;
   default:
-    return false;
+    return PHYSEC_INVALID_PACKET;
   }
 
-  return true;
+  return PHYSEC_VALID_PACKET;
 }
 
 /************	Main program Loop ************/
@@ -844,7 +850,8 @@ static void PHYsec_Platform_Process(void) {
     switch (State) {
     case RX:
       tm_plog(TS_ON, VLEVEL_M, "RX");
-      if (physec_validate_packet(BufferRx, RxBufferSize)) {
+      if (physec_validate_packet(BufferRx, RxBufferSize) ==
+          PHYSEC_VALID_PACKET) {
         physec_packet_t *packet = (physec_packet_t *)BufferRx;
         switch (packet->type) {
         case PHYSEC_PACKET_TYPE_RESET:
@@ -888,7 +895,9 @@ keep_going:
   case RX:
     int type = ((physec_packet_t *)BufferRx)->type;
 
-    if (physec_validate_packet(BufferRx, RxBufferSize)) {
+    physec_packet_validity_e packet_validity =
+        physec_validate_packet(BufferRx, RxBufferSize);
+    if (packet_validity == PHYSEC_VALID_PACKET) {
       tm_plog(TS_ON, VLEVEL_H, "=== PHYsec packet received ===\n\r");
       physec_packet_t *rx_packet = (physec_packet_t *)BufferRx;
 
@@ -995,8 +1004,8 @@ keep_going:
             send_probe(probe_cnt);
           } else {
             // notify master to go back to probing
-            physec_packet_t *packet =
-                build_keygen_error_packet(BufferTx, MAX_APP_BUFFER_SIZE);
+            physec_packet_t *packet = build_keygen_error_packet(
+                physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
             physec_state = PHYSEC_STATE_PROBING;
             Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
           }
@@ -1010,7 +1019,7 @@ keep_going:
           // send keygen done packet
           if (physec_conf.keygen.is_master) {
             physec_packet_t *packet = build_keygen_success_packet_lossy(
-                BufferTx, MAX_APP_BUFFER_SIZE);
+                physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
 
             Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
             physec_state = PHYSEC_STATE_PRE_RECONCILIATION;
@@ -1081,8 +1090,8 @@ keep_going:
         if (!physec_conf.keygen.is_master) {
           // here we are going to enter in reconciliation.
           // compute reconciliation vector according to reconciliation type
-          physec_packet_t *packet_kg_done =
-              build_keygen_slave_done(BufferTx, MAX_APP_BUFFER_SIZE);
+          physec_packet_t *packet_kg_done = build_keygen_slave_done(
+              physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
           physec_state = PHYSEC_STATE_PRE_RECONCILIATION;
           Radio.Send(packet_kg_done, physec_packet_get_size(packet_kg_done));
           goto go_to_rx;
@@ -1093,7 +1102,8 @@ keep_going:
           // case RECON_ECC_SS:
           // default:
           //   packet =
-          //       build_recon_packet_default(physec_key, AES_KEY_SIZE_IN_BYTES,
+          //       build_recon_packet_default(physec_conf.keygen.keygen_id,
+          //       physec_key, AES_KEY_SIZE_IN_BYTES,
           //                                  BufferTx, MAX_APP_BUFFER_SIZE);
           //   break;
           // }
@@ -1144,7 +1154,8 @@ keep_going:
           // }
           success = fe_stl_reproduce_received_locks(recon_pkt);
           physec_packet_t *pkt =
-              build_recon_result_packet(BufferTx, MAX_APP_BUFFER_SIZE, success);
+              build_recon_result_packet(physec_conf.keygen.keygen_id, BufferTx,
+                                        MAX_APP_BUFFER_SIZE, success);
           // TODO: handle retransmission
           tm_plog(TS_ON, VLEVEL_M, "sending recon result\r\n");
           Radio.Send((uint8_t *)pkt, physec_packet_get_size(pkt));
@@ -1224,7 +1235,8 @@ keep_going:
             vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
                                      AES_KEY_SIZE_IN_BYTES);
             physec_packet_t *packet = build_encrypted_packet(
-                msg, sizeof(SECRET_MSG), BufferTx, MAX_APP_BUFFER_SIZE);
+                physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
+                MAX_APP_BUFFER_SIZE);
             Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
           }
         }
@@ -1244,6 +1256,8 @@ keep_going:
       default:
         break;
       }
+    } else if (packet_validity == PHYSEC_UNRELATED_PACKET) {
+      tm_plog(TS_ON, VLEVEL_H, "< Unrelated PHYsec packet received.\n\r");
     } else {
       char msg[MAX_APP_BUFFER_SIZE * 2 + 1] = {0};
       hexlify(BufferRx, RxBufferSize, msg, sizeof(msg));
@@ -1265,8 +1279,8 @@ keep_going:
     switch (physec_state) {
     case PHYSEC_STATE_PRE_RECONCILIATION: {
       if (!physec_conf.keygen.is_master) {
-        physec_packet_t *retrans =
-            build_keygen_slave_done(BufferTx, MAX_APP_BUFFER_SIZE);
+        physec_packet_t *retrans = build_keygen_slave_done(
+            physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
         Radio.Send(retrans, physec_packet_get_size(retrans));
       }
       break;
@@ -1290,7 +1304,8 @@ keep_going:
       tm_plog(TS_ON, VLEVEL_M, "Requesting 0x%x indexes\n\r",
               (uint16_t)~post_process_rx_chunks);
       physec_packet_t *packet = build_keygen_retransmission_req_packet(
-          ~post_process_rx_chunks, BufferTx, MAX_APP_BUFFER_SIZE);
+          physec_conf.keygen.keygen_id, ~post_process_rx_chunks, BufferTx,
+          MAX_APP_BUFFER_SIZE);
 
       Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
       HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
@@ -1314,8 +1329,8 @@ keep_going:
       } else if (quant_status == QUANT_STATUS_FAILURE) {
         // if quantization was requested but failed,
         // then send KeyGen Quant error packet
-        physec_packet_t *packet =
-            build_keygen_error_packet(BufferTx, MAX_APP_BUFFER_SIZE);
+        physec_packet_t *packet = build_keygen_error_packet(
+            physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
         Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
       }
       break;
@@ -1324,8 +1339,8 @@ keep_going:
       if (physec_conf.keygen.is_master) {
         // Send KeyGen start packet for lossless quant
         // (assuming it was not received by slave)
-        physec_packet_t *packet =
-            build_keygen_success_packet_lossless(BufferTx, MAX_APP_BUFFER_SIZE);
+        physec_packet_t *packet = build_keygen_success_packet_lossless(
+            physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
         Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
       }
 
@@ -1348,7 +1363,8 @@ keep_going:
       //   // (assuming it was not received by slave)
       //   tm_plog(TS_ON, VLEVEL_L, "Sending Post-Keygen end packet\n\r");
       //   physec_packet_t *packet =
-      //       build_keygen_success_packet_lossy(BufferTx, MAX_APP_BUFFER_SIZE);
+      //       build_keygen_success_packet_lossy(physec_conf.keygen.keygen_id,
+      //       BufferTx, MAX_APP_BUFFER_SIZE);
       //
       //   // HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
       //   Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
@@ -1366,7 +1382,8 @@ keep_going:
       vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
                                AES_KEY_SIZE_IN_BYTES);
       physec_packet_t *packet = build_encrypted_packet(
-          msg, sizeof(SECRET_MSG), BufferTx, MAX_APP_BUFFER_SIZE);
+          physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
+          MAX_APP_BUFFER_SIZE);
 
       // HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
       Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));

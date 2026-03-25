@@ -2,6 +2,7 @@
 #define __PHYSEC_RADIO__
 
 /* Includes ------------------------------------------------------------------*/
+#include "libphysec/packet.h"
 #include "physec_config.h"
 #include "radio.h"
 #include "subghz_phy_app.h"
@@ -99,7 +100,7 @@ uint32_t lora_time_on_air(uint8_t sf, uint8_t bw, uint8_t preamble_len,
 
 int handle_probe(physec_probe_packet_t *probe_resp, bool is_master);
 void send_probe(uint32_t counter);
-bool physec_validate_packet(uint8_t *packet, size_t size);
+physec_packet_validity_e physec_validate_packet(uint8_t *packet, size_t size);
 
 /* === Reconciliation Implementation === */
 #define FE_STL_NUM_LOCKS_PER_TRY 4

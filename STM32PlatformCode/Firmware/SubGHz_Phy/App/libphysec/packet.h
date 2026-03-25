@@ -54,6 +54,13 @@ typedef enum {
   PHYSEC_PACKET_TYPE_ENCRYPTED = 0x454e4352              // "ENCR"
 } physec_packet_type_t;
 
+typedef enum {
+  PHYSEC_UNKNOWN_PACKET,
+  PHYSEC_INVALID_PACKET,
+  PHYSEC_UNRELATED_PACKET,
+  PHYSEC_VALID_PACKET,
+} physec_packet_validity_e;
+
 /*!
  *	\brief PHYsec Key Generation packet subtype (Post-Process)
  */
@@ -70,7 +77,7 @@ typedef enum {
 typedef struct __attribute__((__packed__)) {
   uint32_t type;
   // uint64_t timestamp;
-  // uint8_t src_id;
+  uint8_t keygen_id;
   uint8_t data[];
 } physec_packet_t;
 
@@ -187,42 +194,42 @@ extern int physec_make_padding_bytes(uint8_t *data, size_t size);
 // returns NULL.
 // there is no allocation performed, thus, do not free !!!
 
-extern physec_packet_t *build_probe_packet(uint32_t cnt, uint8_t padding,
+extern physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt, uint8_t padding,
                                            uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_keygen_data_packet(uint8_t chunk_id,
+extern physec_packet_t *build_keygen_data_packet(uint8_t keygen_id, uint8_t chunk_id,
                                                  quant_index_t *indexes_chunk,
                                                  size_t num_indexes_chunk,
                                                  size_t num_indexes,
                                                  uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_keygen_success_packet_lossy(uint8_t *buf,
+extern physec_packet_t *build_keygen_success_packet_lossy(uint8_t keygen_id, uint8_t *buf,
                                                           size_t size);
-extern physec_packet_t *build_keygen_success_packet_lossless(uint8_t *buf,
+extern physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id, uint8_t *buf,
                                                              size_t size);
-physec_packet_t *build_keygen_slave_done(uint8_t *buf, size_t size);
+physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf, size_t size);
 
 extern physec_packet_t *
-build_keygen_retransmission_req_packet(lossy_chunk_bitmap_t lost_chunks_bitmap,
+build_keygen_retransmission_req_packet(uint8_t keygen_id, lossy_chunk_bitmap_t lost_chunks_bitmap,
                                        uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_keygen_error_packet(uint8_t *buf, size_t size);
+extern physec_packet_t *build_keygen_error_packet(uint8_t keygen_id, uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_recon_packet_default(uint8_t *key,
+extern physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key,
                                                    size_t key_size,
                                                    uint8_t *buf, size_t size);
 extern physec_packet_t *
-build_recon_fe_stl_packet(fe_helpers_t *helpers, uint8_t *buf,
+build_recon_fe_stl_packet(uint8_t keygen_id, fe_helpers_t *helpers, uint8_t *buf,
                           uint32_t buf_size, uint32_t key_size,
                           uint32_t sec_param, uint32_t num_helpers);
-extern physec_packet_t *build_recon_packet_pcs(uint32_t rec_vec_size,
+extern physec_packet_t *build_recon_packet_pcs(uint8_t keygen_id, uint32_t rec_vec_size,
                                                uint8_t *cs_vec, uint8_t *buf,
                                                size_t size);
-extern physec_packet_t *build_recon_result_packet(uint8_t *buf, uint32_t size,
+extern physec_packet_t *build_recon_result_packet(uint8_t keygen_id, uint8_t *buf, uint32_t size,
                                                   bool success);
-extern physec_packet_t *build_encrypted_packet(uint8_t *payload,
+extern physec_packet_t *build_encrypted_packet(uint8_t keygen_id, uint8_t *payload,
                                                size_t payload_size,
                                                uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_reset_packet(uint8_t *buf, size_t size,
+extern physec_packet_t *build_reset_packet(uint8_t keygen_id, uint8_t *buf, size_t size,
                                            uint8_t ack);
