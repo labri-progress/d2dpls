@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -111,7 +112,8 @@ typedef struct __attribute__((__packed__)) {
  *
  *	Correspond to `PHYSEC_KEYGEN_TYPE_DATA` subtype
  */
-typedef struct __attribute__((__packed__)) {
+typedef struct __attribute__((
+    __packed__, __aligned__(4))) { // base struct ptr is aligned as well
   union {
     // dynamic quant params
     // TODO
@@ -125,6 +127,9 @@ typedef struct __attribute__((__packed__)) {
                             // PHYSEC_PACKET_KEYGEN_HEADER_SIZE
                             // if you modify the size of this field
       uint16_t num_lossy_points : 12;
+      uint16_t
+          padding; // dynparams is 4 byte, chunk_id+num_lossy_points is 2 bytes
+                   // so I add 2 other bytes so lossy_points is aligned
       quant_index_t lossy_points[MAX_LOSSY_PER_RADIO_FRAME];
     } lossy;
 #define dropped lossy.lossy_points
@@ -194,42 +199,50 @@ extern int physec_make_padding_bytes(uint8_t *data, size_t size);
 // returns NULL.
 // there is no allocation performed, thus, do not free !!!
 
-extern physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt, uint8_t padding,
-                                           uint8_t *buf, size_t size);
-
-extern physec_packet_t *build_keygen_data_packet(uint8_t keygen_id, uint8_t chunk_id,
-                                                 quant_index_t *indexes_chunk,
-                                                 size_t num_indexes_chunk,
-                                                 size_t num_indexes,
-                                                 uint8_t *buf, size_t size);
-
-extern physec_packet_t *build_keygen_success_packet_lossy(uint8_t keygen_id, uint8_t *buf,
-                                                          size_t size);
-extern physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id, uint8_t *buf,
-                                                             size_t size);
-physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf, size_t size);
+extern physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt,
+                                           uint8_t padding, uint8_t *buf,
+                                           size_t size);
 
 extern physec_packet_t *
-build_keygen_retransmission_req_packet(uint8_t keygen_id, lossy_chunk_bitmap_t lost_chunks_bitmap,
+build_keygen_data_packet(uint8_t keygen_id, uint8_t chunk_id,
+                         quant_index_t *indexes_chunk, size_t num_indexes_chunk,
+                         size_t num_indexes, uint8_t *buf, size_t size);
+
+extern physec_packet_t *
+build_keygen_success_packet_lossy(uint8_t keygen_id, uint8_t *buf, size_t size);
+extern physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id,
+                                                             uint8_t *buf,
+                                                             size_t size);
+physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf,
+                                         size_t size);
+
+extern physec_packet_t *
+build_keygen_retransmission_req_packet(uint8_t keygen_id,
+                                       lossy_chunk_bitmap_t lost_chunks_bitmap,
                                        uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_keygen_error_packet(uint8_t keygen_id, uint8_t *buf, size_t size);
+extern physec_packet_t *build_keygen_error_packet(uint8_t keygen_id,
+                                                  uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key,
+extern physec_packet_t *build_recon_packet_default(uint8_t keygen_id,
+                                                   uint8_t *key,
                                                    size_t key_size,
                                                    uint8_t *buf, size_t size);
 extern physec_packet_t *
-build_recon_fe_stl_packet(uint8_t keygen_id, fe_helpers_t *helpers, uint8_t *buf,
-                          uint32_t buf_size, uint32_t key_size,
+build_recon_fe_stl_packet(uint8_t keygen_id, fe_helpers_t *helpers,
+                          uint8_t *buf, uint32_t buf_size, uint32_t key_size,
                           uint32_t sec_param, uint32_t num_helpers);
-extern physec_packet_t *build_recon_packet_pcs(uint8_t keygen_id, uint32_t rec_vec_size,
+extern physec_packet_t *build_recon_packet_pcs(uint8_t keygen_id,
+                                               uint32_t rec_vec_size,
                                                uint8_t *cs_vec, uint8_t *buf,
                                                size_t size);
-extern physec_packet_t *build_recon_result_packet(uint8_t keygen_id, uint8_t *buf, uint32_t size,
+extern physec_packet_t *build_recon_result_packet(uint8_t keygen_id,
+                                                  uint8_t *buf, uint32_t size,
                                                   bool success);
-extern physec_packet_t *build_encrypted_packet(uint8_t keygen_id, uint8_t *payload,
+extern physec_packet_t *build_encrypted_packet(uint8_t keygen_id,
+                                               uint8_t *payload,
                                                size_t payload_size,
                                                uint8_t *buf, size_t size);
 
-extern physec_packet_t *build_reset_packet(uint8_t keygen_id, uint8_t *buf, size_t size,
-                                           uint8_t ack);
+extern physec_packet_t *build_reset_packet(uint8_t keygen_id, uint8_t *buf,
+                                           size_t size, uint8_t ack);

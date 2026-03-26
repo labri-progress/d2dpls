@@ -1,6 +1,8 @@
 #include "physec_radio.h"
 #include "physec_telemetry.h"
+#include "physec_utils.h"
 #include "radio.h"
+#include "stm32_seq.h"
 #include "subghz_phy_app.h"
 
 #include "libphysec/acquisition.h"
@@ -282,7 +284,6 @@ void fe_stl_create_and_send_locks() {
   }
 
   uint8_t r_buf[AES_KEY_SIZE_IN_BYTES];
-  uint8_t r_p_buf[AES_KEY_SIZE_IN_BYTES];
   uint8_t w_i_buf[AES_KEY_SIZE_IN_BYTES];
 
   fe_helpers_t helpers;

@@ -155,6 +155,8 @@ void UTIL_SEQ_Idle(void)
 
 /* Private functions ---------------------------------------------------------*/
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 static void TimestampNow(uint8_t *buff, uint16_t *size)
 {
   /* USER CODE BEGIN TimestampNow_1 */
@@ -167,6 +169,7 @@ static void TimestampNow(uint8_t *buff, uint16_t *size)
 
   /* USER CODE END TimestampNow_2 */
 }
+#pragma GCC diagnostic pop
 
 static void Gpio_PreInit(void)
 {

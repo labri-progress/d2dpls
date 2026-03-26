@@ -22,7 +22,7 @@
 #include "dma.h"
 
 /* USER CODE BEGIN 0 */
-static void (*RxCpltCallback)(uint8_t *rxChar, uint16_t size, uint8_t error);
+static void (*RxCpltCallback)(UART_HandleTypeDef*);
 
 /* USER CODE END 0 */
 
@@ -282,7 +282,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 
 }
 
-void HAL_UART_SetRxConfig(UART_HandleTypeDef* huart, void(*rx_cb)(uint8_t *, uint16_t, uint8_t), uint8_t *rx_buf, uint16_t rx_size)
+void HAL_UART_SetRxConfig(UART_HandleTypeDef* huart, void(*rx_cb)(UART_HandleTypeDef*), uint8_t *rx_buf, uint16_t rx_size)
 {
 	RxCpltCallback = rx_cb;
 	HAL_UART_Receive_DMA(huart, rx_buf, rx_size);

@@ -41,7 +41,7 @@ void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
-void HAL_UART_SetRxConfig(UART_HandleTypeDef *huart, void(*rx_cb)(uint8_t *, uint16_t, uint8_t), uint8_t *rx_buf, uint16_t rx_size); 
+void HAL_UART_SetRxConfig(UART_HandleTypeDef *huart, void(*rx_cb)(UART_HandleTypeDef*), uint8_t *rx_buf, uint16_t rx_size); 
 
 /* USER CODE END Prototypes */
 

@@ -86,7 +86,8 @@ int physec_make_padding_bytes(uint8_t *data, size_t size) {
   return padding;
 }
 
-physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt, uint8_t padding, uint8_t *buf,
+physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt,
+                                    uint8_t padding, uint8_t *buf,
                                     size_t size) {
   if (size <
       sizeof(physec_packet_t) + sizeof(physec_probe_packet_t) + padding - 1)
@@ -138,7 +139,8 @@ physec_packet_t *build_keygen_data_packet(uint8_t keygen_id, uint8_t chunk_id,
   return packet;
 }
 
-physec_packet_t *build_keygen_success_packet_lossy(uint8_t keygen_id, uint8_t *buf, size_t size) {
+physec_packet_t *build_keygen_success_packet_lossy(uint8_t keygen_id,
+                                                   uint8_t *buf, size_t size) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_keygen_packet_t) +
                  sizeof(physec_keygen_retransmission_req_t))
     return NULL;
@@ -155,7 +157,8 @@ physec_packet_t *build_keygen_success_packet_lossy(uint8_t keygen_id, uint8_t *b
   return packet;
 }
 
-physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id, uint8_t *buf,
+physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id,
+                                                      uint8_t *buf,
                                                       size_t size) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_keygen_packet_t) +
                  sizeof(physec_keygen_data_t))
@@ -175,7 +178,8 @@ physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id, uint8_t
   return packet;
 }
 
-physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf, size_t size) {
+physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf,
+                                         size_t size) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_keygen_packet_t))
     return NULL;
   physec_packet_t *packet = (physec_packet_t *)buf;
@@ -187,7 +191,8 @@ physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf, size_t
 }
 
 physec_packet_t *
-build_keygen_retransmission_req_packet(uint8_t keygen_id, lossy_chunk_bitmap_t lost_chunks_bitmap,
+build_keygen_retransmission_req_packet(uint8_t keygen_id,
+                                       lossy_chunk_bitmap_t lost_chunks_bitmap,
                                        uint8_t *buf, size_t size) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_keygen_packet_t) +
                  sizeof(physec_keygen_retransmission_req_t))
@@ -205,7 +210,8 @@ build_keygen_retransmission_req_packet(uint8_t keygen_id, lossy_chunk_bitmap_t l
   return packet;
 }
 
-physec_packet_t *build_keygen_error_packet(uint8_t keygen_id, uint8_t *buf, size_t size) {
+physec_packet_t *build_keygen_error_packet(uint8_t keygen_id, uint8_t *buf,
+                                           size_t size) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_keygen_packet_t))
     return NULL;
 
@@ -218,8 +224,9 @@ physec_packet_t *build_keygen_error_packet(uint8_t keygen_id, uint8_t *buf, size
   return packet;
 }
 
-physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key, size_t key_size,
-                                            uint8_t *buf, size_t size) {
+physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key,
+                                            size_t key_size, uint8_t *buf,
+                                            size_t size) {
   if (key_size != PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE)
     return NULL;
   if (size < sizeof(physec_packet_t) + sizeof(physec_recon_packet_t) +
@@ -236,7 +243,8 @@ physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key, siz
   return packet;
 }
 
-physec_packet_t *build_recon_fe_stl_packet(uint8_t keygen_id, fe_helpers_t *helpers, uint8_t *buf,
+physec_packet_t *build_recon_fe_stl_packet(uint8_t keygen_id,
+                                           fe_helpers_t *helpers, uint8_t *buf,
                                            uint32_t buf_size, uint32_t key_size,
                                            uint32_t sec_param,
                                            uint32_t num_helpers) {
@@ -261,8 +269,8 @@ physec_packet_t *build_recon_fe_stl_packet(uint8_t keygen_id, fe_helpers_t *help
   return packet;
 }
 
-physec_packet_t *build_recon_result_packet(uint8_t keygen_id, uint8_t *buf, uint32_t size,
-                                           bool success) {
+physec_packet_t *build_recon_result_packet(uint8_t keygen_id, uint8_t *buf,
+                                           uint32_t size, bool success) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_recon_result_packet_t))
     return NULL;
   physec_packet_t *packet = (physec_packet_t *)buf;
@@ -274,7 +282,8 @@ physec_packet_t *build_recon_result_packet(uint8_t keygen_id, uint8_t *buf, uint
   return packet;
 }
 
-physec_packet_t *build_encrypted_packet(uint8_t keygen_id, uint8_t *encrypted_payload,
+physec_packet_t *build_encrypted_packet(uint8_t keygen_id,
+                                        uint8_t *encrypted_payload,
                                         size_t encrypted_payload_size,
                                         uint8_t *buf, size_t size) {
   if (size < sizeof(physec_packet_t) + sizeof(physec_encrypted_packet_t) +
@@ -290,7 +299,8 @@ physec_packet_t *build_encrypted_packet(uint8_t keygen_id, uint8_t *encrypted_pa
   return packet;
 }
 
-physec_packet_t *build_reset_packet(uint8_t keygen_id, uint8_t *buf, size_t size, uint8_t ack) {
+physec_packet_t *build_reset_packet(uint8_t keygen_id, uint8_t *buf,
+                                    size_t size, uint8_t ack) {
   if (size < sizeof(physec_packet_t))
     return NULL;
 

@@ -30,6 +30,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "libphysec/libphysec.h"
 #include "physec_config.h"
+#include "physec_telemetry.h"
 #include <stdint.h>
 
 /* USER CODE BEGIN Includes */
@@ -226,13 +227,10 @@ void handle_user_button(void);
  * @brief Reset the PhySec states to default
  */
 void reset_physec_states(void);
-static void wait_physec_config(void);
-static bool eeprom_read_physec_config(physec_config *conf);
-static void eeprom_write_physec_config(const physec_config *conf);
+void wait_physec_config(void);
 
+void PHYsec_Platform_Process(void);
 
-
-static void PHYsec_Platform_Process(void);
 enum {
   QUANT_STATUS_WAITING,
   QUANT_STATUS_FAILURE,

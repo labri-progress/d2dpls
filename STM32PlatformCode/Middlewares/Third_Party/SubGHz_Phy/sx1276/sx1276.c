@@ -2204,22 +2204,22 @@ static void SX1276OnDio2Irq( void )
     }
 }
 
-static void us_delay(uint32_t us)
-{
-	
-
-    uint32_t hclk_freq = HAL_RCC_GetHCLKFreq();
-    uint32_t delay_cycles = (hclk_freq / 1000000) * us; 
-
-	if (delay_cycles < us) {
-		
-	}
-
-    while (delay_cycles--) {
-        __NOP(); // Use NOP to ensure the loop is not optimized away
-		//__asm__("nop");
-	}
-}
+// static void us_delay(uint32_t us)
+// {
+//
+//
+//     uint32_t hclk_freq = HAL_RCC_GetHCLKFreq();
+//     uint32_t delay_cycles = (hclk_freq / 1000000) * us; 
+//
+// 	if (delay_cycles < us) {
+//
+// 	}
+//
+//     while (delay_cycles--) {
+//         __NOP(); // Use NOP to ensure the loop is not optimized away
+// 		//__asm__("nop");
+// 	}
+// }
 
 
 static void SX1276OnDio3Irq( void )

@@ -46,7 +46,7 @@
 //(chen2023adaptive) 	QUANT_ADAPTIVE = 7, } quant_type_t;
 
 typedef enum __attribute__((__packed__)) {
-  QUANT_MBR_LOSSLESS = (0) ,                // 2
+  QUANT_MBR_LOSSLESS = (0),                                            // 2
   QUANT_MBE_LOSSY = (1) << 2 | QUANT_BLOCKWISE_MASK,                   // 6
   QUANT_SB_DIFF_LOSSY = (2) << 2 | QUANT_LOSSY_MASK,                   // 9
   QUANT_SB_EXCURSION_LOSSY = (3) << 2 | QUANT_LOSSY_MASK,              // 13
@@ -259,7 +259,8 @@ int quant_mbe_lossy(int16_t *measures, size_t n_measures, float alpha,
  *	\param	outkey			The outputed key buffer
  *	\param	key_size		The size of the key in bytes
  */
- bool measurements_sufficiency_check_mbr_lossless(int16_t *measures, size_t nb_measures);
+bool measurements_sufficiency_check_mbr_lossless(int16_t *measures,
+                                                 size_t nb_measures);
 int quant_mbr_lossless(int16_t *measures, size_t n_measures, uint8_t *outkey,
                        size_t key_size);
 

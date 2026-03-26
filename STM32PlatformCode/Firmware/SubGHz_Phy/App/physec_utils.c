@@ -13,7 +13,7 @@
 void prng_init(physec_prng_t *prng, char *name, uint32_t name_len) {
   prng->hrng.Instance = RNG;
   prng->last_status = HAL_RNG_Init(&prng->hrng);
-  prng->name = name;
+  prng->name = (uint8_t *)name;
   prng->name_len = name_len;
   if (prng->last_status != HAL_OK) {
     FAIL("failed initializing");
@@ -85,12 +85,17 @@ void prf(uint8_t *out_buf, uint32_t out_size, uint8_t *key_buf,
          uint32_t key_size, uint8_t *nonce, uint32_t nonce_size,
          physec_prng_t *prng) {
   cmox_mac_retval_t retval;
-  uint32_t computed_size;
+  size_t computed_size;
 
   retval = cmox_mac_compute(CMOX_KMAC_128_ALGO, nonce, nonce_size, key_buf,
                             key_size, prng->name, prng->name_len, out_buf,
                             out_size, &computed_size);
 
+  if (retval != CMOX_MAC_SUCCESS) {
+    tm_plog(TS_ON, VLEVEL_M, "Expected CMOX_MAX_SUCCESS (%d) got %d",
+            CMOX_MAC_SUCCESS, retval);
+    FAIL("error in prf");
+  }
   if (computed_size != out_size) {
     tm_plog(TS_ON, VLEVEL_M, "expected %d bytes but got %d", out_size,
             computed_size);
@@ -411,8 +416,8 @@ void truncate_physec_key(size_t physec_key_size_in_bits) {
   size_t bit_offset =
       physec_key_size_in_bits - KEEP_BITS; // How many bits to skip at the start
                                            // to keep only last 128 bits
-  size_t byte_offset = bit_offset / 8; // How many whole bytes we can skip
-  size_t shift = bit_offset % 8;       //  shift "shift" bits inside first byte
+  size_t byte_offset = bit_offset / 8;     // How many whole bytes we can skip
+  size_t shift = bit_offset % 8; //  shift "shift" bits inside first byte
 
   uint8_t out[KEEP_BYTES];
 

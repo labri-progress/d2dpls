@@ -26,6 +26,7 @@ typedef enum {
   WAIT_RST,   // bob is waiting for a rst
   WAIT_PROBE, // bob is waiting for a probe
 } ResetStates_t;
+void reset_handler(int requested_transition);
 
 typedef enum {
   RECV_RST,

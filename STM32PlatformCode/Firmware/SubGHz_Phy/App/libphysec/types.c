@@ -2,9 +2,7 @@
 
 #include <stdlib.h>
 
-struct density *
-alloc_density(uint16_t bin_nbr)
-{
+struct density *alloc_density(uint16_t bin_nbr) {
   struct density *ptr = malloc(sizeof(struct density));
   if (!ptr)
     return NULL;
@@ -27,9 +25,7 @@ alloc_density(uint16_t bin_nbr)
   return ptr;
 }
 
-void
-free_density(struct density *ptr)
-{
+void free_density(struct density *ptr) {
   if (ptr) {
     if (ptr->bins) {
       free(ptr->bins);

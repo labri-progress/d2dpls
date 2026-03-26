@@ -141,15 +141,19 @@ int16_t i16_min(int16_t *measures, size_t n_measures) {
 // quant_is_enough_csi(quant_type_t qtype, size_t num_csi)
 //{
 //	// TODO: Regarding the quantization method, check if there is enough
-//gathered csi to perform quantization 	switch (qtype) { 		case
-//QUANT_SB_DIFF_LOSSY: 			if (num_csi >= 256) // FIX: this is the best case (we
-//don't really know how many csi will be dropped) 				return true; 			break; 		case
-//QUANT_SB_EXCURSION_LOSSY: 			if (num_csi >= 512) // FIX: scale on 'm' 				return
-//true; 			break; 		case QUANT_MB_EXCURSION_LOSSY: 			if (num_csi >= 512) // FIX: scale
-//on 'm' and 'num_quant_level' 				return true; 		case QUANT_MBR_LOSSLESS: 			if (num_csi
-//>= 128)	// minimal limit for worst case 				return true; 		case
-//QUANT_MBE_LOSSY: 			if (num_csi >= 192)	// minimal limit for worst case 				return
-//true; 		default: 			break;
+// gathered csi to perform quantization 	switch (qtype) {
+// case QUANT_SB_DIFF_LOSSY: 			if (num_csi >= 256) // FIX: this
+// is the best case (we don't really know how many csi will be dropped)
+// return true; 			break; 		case
+// QUANT_SB_EXCURSION_LOSSY: 			if (num_csi >= 512) // FIX:
+// scale on 'm' 				return true;
+// break; 		case QUANT_MB_EXCURSION_LOSSY: 			if
+// (num_csi >= 512) // FIX: scale on 'm' and 'num_quant_level'
+// return true; 		case QUANT_MBR_LOSSLESS: if (num_csi
+//>= 128)	// minimal limit for worst case
+//return true; 		case QUANT_MBE_LOSSY: 			if (num_csi >=
+// 192)	// minimal limit for worst case 				return
+// true; 		default: 			break;
 //	}
 //	return false;
 //}
@@ -203,7 +207,6 @@ uint32_t quant_retain_csis(quant_lossy_params_t *qparams, uint8_t *key,
                            size_t num_indexes) {
   size_t tmp_cap_in_bits = 64 * 8;
   uint8_t tmp_key[64] = {0};
-  size_t tmp_num_bits = 0;
 
   if (!quant_index_t_is_sorted(indexes, num_indexes)) {
     quant_index_t_sort(indexes, num_indexes);
@@ -400,7 +403,7 @@ void quant_excursion_select_random_subset(quant_index_t *excursions,
 // num_indexes, quant_excursion_index_t *excursions, size_t *num_excursions)
 //{
 //	// TODO: Modify the `excursions` array to select the excursions matching
-//the valid `indexes` 	return false;
+// the valid `indexes` 	return false;
 // }
 
 int quant_sb_lossless(csi_t *measures, size_t n_measures, uint8_t *key,
@@ -465,10 +468,10 @@ int quant_mbe_lossy(csi_t *measures, size_t n_measures, float alpha,
   // size_t n_levels = (1 << nbits_per_level); // pow(2, x) <=> (1 << x)
   unsigned char level;
   uint8_t gen_bits;
-  uint8_t nbr_of_generated_bits_by_char = 0, key_char_index = 0;
+  // uint8_t nbr_of_generated_bits_by_char = 0, key_char_index = 0;
   uint8_t key_capacity_in_bits = key_size * 8;
   int num_quantized = 0;
-  int8_t rest_bits;
+  // int8_t rest_bits;
 
   // computing density
   struct density density = PHYSEC_quntification_get_density(measures);
@@ -664,21 +667,22 @@ int quant_adaptive(int16_t *measures, size_t n_measures, uint8_t *outkey,
 //			// section (positive, guard band or negative)
 //			// as the breaking value
 //			// i = breaked_at-1;  // this is an optimization which
-//is
+// is
 //								  // not present
-//in the paper's algorithm
+// in the paper's algorithm
 //								  // so its
-//commented 			continue;
+// commented 			continue;
 //		}
 //
 //		//excursions[num_excursions].value = (uint8_t) positive;
 //		excursions[num_actual_excursions].value = (positive) ? 1 : 0;
 //		excursions[num_actual_excursions].index = (i*2+m-1) / 2;
-//// (i + i_end) / 2 		num_actual_excursions++; 		i += m-1;
+//// (i + i_end) / 2 		num_actual_excursions++; 		i +=
+///m-1;
 //	}
 //	if (num_actual_excursions > *num_excursions) {
 //		// TODO: truncate excursions instead of returning an error (If
-//there is still enough excursion to generate a key) 		return -1;
+// there is still enough excursion to generate a key) 		return -1;
 //	}
 //
 //	if (num_actual_excursions < key_size*8)
@@ -698,7 +702,7 @@ int quant_adaptive(int16_t *measures, size_t n_measures, uint8_t *outkey,
 // alpha, size_t key_size)
 //{
 //	// TODO: Quantize only the measures corresponding excursion indexes,
-//modify `excursion_indexes`, fill the `excursion` array
+// modify `excursion_indexes`, fill the `excursion` array
 //
 //	int16_t variance = rssi_variance(measures, n_measures);
 //	int16_t mean = rssi_mean(measures, n_measures);
@@ -715,7 +719,7 @@ int quant_adaptive(int16_t *measures, size_t n_measures, uint8_t *outkey,
 //		int left_part_size = (int)roundf((float) (m-1) / 2);
 //		int right_part_size = (int)roundf((float)m/2);
 //		if ((measures[cur_idx] <= q_plus && measures[cur_idx] >=
-//q_minus)
+// q_minus)
 //			|| cur_idx < left_part_size
 //			|| cur_idx > right_part_size) {
 //			continue;

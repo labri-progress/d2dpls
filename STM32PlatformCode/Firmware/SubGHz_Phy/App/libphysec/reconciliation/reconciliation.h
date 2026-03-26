@@ -6,10 +6,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define FAIL(msg)                                                              \
-  while (1)                                                                    \
-    ;
-
 typedef enum __attribute__((__packed__)) {
   // Error Correcting Codes + Secure Sketch
   RECON_ECC_SS = 0,

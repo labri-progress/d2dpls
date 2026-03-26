@@ -305,8 +305,8 @@ void SubghzApp_Init(void) {
       if (measurements_sufficiency_check_mbr_lossless(csi_measures, num_csi)) {
         // then we find the minimum amount of CSI we need
         bool found_min_num_csi = false;
-        for (int required_csi = 0; required_csi < num_csi && !found_min_num_csi;
-             required_csi++) {
+        for (size_t required_csi = 0;
+             required_csi < num_csi && !found_min_num_csi; required_csi++) {
           if (measurements_sufficiency_check_mbr_lossless(csi_measures,
                                                           required_csi)) {
             // we found the minimum number of CSI required
@@ -360,7 +360,7 @@ void SubghzApp_Init(void) {
  *	Abort on timeout expiration or configuration done. Configuration data
  *	is handled and parsed by the UART IRQ.
  */
-static void wait_physec_config(void) {
+void wait_physec_config(void) {
   uint32_t start_time = HAL_GetTick();
   while (on_config || HAL_GetTick() - start_time < UART_CONFIG_TIME_WINDOW_MS) {
     __WFI();
@@ -385,7 +385,6 @@ static void post_process_send_indexes(lossy_chunk_bitmap_t to_send) {
     num_chunks = MAX_LOSSY_CHUNKS;
 
   for (size_t i = 0; i < num_chunks; i++) {
-    size_t num_indexes_to_send = 0;
     if ((to_send >> i) & 0x1) {
       tm_plog(TS_ON, VLEVEL_L, "> PLS - Sending lossy indexes chunk %u\n\r", i);
       size_t num_indexes_chunk =
@@ -629,6 +628,8 @@ static void do_post_processing(void) {
   }
 
   switch (physec_conf.keygen.quant_type) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
   case QUANT_SB_EXCURSION_LOSSY:
     quant_params.dynamic = false;
     quant_params.nbits_per_sample = 1;
@@ -644,6 +645,7 @@ static void do_post_processing(void) {
           &quant_params, physec_key, physec_key_num_bits, indexes, num_indexes);
       // num_indexes = 0;
     }
+#pragma GCC diagnostic pop
 
     break;
   case QUANT_SB_DIFF_LOSSY:
@@ -841,12 +843,13 @@ physec_packet_validity_e physec_validate_packet(uint8_t *packet, size_t size) {
 }
 
 /************	Main program Loop ************/
-static void PHYsec_Platform_Process(void) {
+void PHYsec_Platform_Process(void) {
   Radio.Sleep();
 
   // let's keep this switch simple.
   // once it will work, we will try to integrate it better
   if (reset_state > 0) {
+    physec_reset_packet_t *rst_pck;
     switch (State) {
     case RX:
       tm_plog(TS_ON, VLEVEL_M, "RX");
@@ -855,8 +858,7 @@ static void PHYsec_Platform_Process(void) {
         physec_packet_t *packet = (physec_packet_t *)BufferRx;
         switch (packet->type) {
         case PHYSEC_PACKET_TYPE_RESET:
-          physec_reset_packet_t *rst_pck =
-              (physec_reset_packet_t *)&packet->data;
+          rst_pck = (physec_reset_packet_t *)&packet->data;
           if (rst_pck->ack) {
             tm_plog(TS_ON, VLEVEL_M, "Received RESET ACK");
             reset_handler(RECV_RST_ACK);
@@ -879,6 +881,8 @@ static void PHYsec_Platform_Process(void) {
       break;
     case TX:
       break;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
     case RX_ERROR:
       tm_plog(TS_ON, VLEVEL_M, "ERR\r\n");
     case RX_TIMEOUT:
@@ -886,17 +890,16 @@ static void PHYsec_Platform_Process(void) {
       reset_handler(TIMEOUT);
       break;
     }
+#pragma GCC diagnostic pop
     Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
     return;
   }
 
+  physec_packet_validity_e packet_validity;
 keep_going:
   switch (State) {
   case RX:
-    int type = ((physec_packet_t *)BufferRx)->type;
-
-    physec_packet_validity_e packet_validity =
-        physec_validate_packet(BufferRx, RxBufferSize);
+    packet_validity = physec_validate_packet(BufferRx, RxBufferSize);
     if (packet_validity == PHYSEC_VALID_PACKET) {
       tm_plog(TS_ON, VLEVEL_H, "=== PHYsec packet received ===\n\r");
       physec_packet_t *rx_packet = (physec_packet_t *)BufferRx;
@@ -1093,7 +1096,8 @@ keep_going:
           physec_packet_t *packet_kg_done = build_keygen_slave_done(
               physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
           physec_state = PHYSEC_STATE_PRE_RECONCILIATION;
-          Radio.Send(packet_kg_done, physec_packet_get_size(packet_kg_done));
+          Radio.Send((uint8_t *)packet_kg_done,
+                     physec_packet_get_size(packet_kg_done));
           goto go_to_rx;
           // physec_packet_t *packet = NULL;
           // switch (physec_conf.keygen.recon_type) {
@@ -1281,7 +1285,7 @@ keep_going:
       if (!physec_conf.keygen.is_master) {
         physec_packet_t *retrans = build_keygen_slave_done(
             physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-        Radio.Send(retrans, physec_packet_get_size(retrans));
+        Radio.Send((uint8_t *)retrans, physec_packet_get_size(retrans));
       }
       break;
     }
@@ -1353,10 +1357,12 @@ keep_going:
 
       if (physec_conf.keygen.is_master) {
         tm_plog(TS_ON, VLEVEL_M, "recon rez recon buf\r\n");
-        Radio.Send(BufferTx, physec_packet_get_size(BufferTx));
+        Radio.Send(BufferTx,
+                   physec_packet_get_size((physec_packet_t *)BufferTx));
       } else {
         tm_plog(TS_ON, VLEVEL_M, "resending recon rez\r\n");
-        Radio.Send(BufferTx, physec_packet_get_size(BufferTx));
+        Radio.Send(BufferTx,
+                   physec_packet_get_size((physec_packet_t *)BufferTx));
       }
       // if (physec_conf.keygen.is_master) {
       //   // indicating Slave need to continue to reconciliation phase

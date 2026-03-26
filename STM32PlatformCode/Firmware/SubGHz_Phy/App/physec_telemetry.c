@@ -1,7 +1,9 @@
 #include "physec_telemetry.h"
+#include "rtc_if.h"
 #include "subghz_phy_app.h"
 #include "usart.h"
 #include "usart_if.h"
+#include <stdio.h>
 
 #include "physec_config.h"
 
@@ -9,13 +11,13 @@
 
 size_t physec_telemetry_get_size(physec_telemetry_packet_t *packet) {
   size_t payload_size = 0;
+  physec_telemetry_keygen_info_t *kg_info;
   switch (packet->type) {
   case PHYSEC_TELEMETRY_KG_CONF:
     payload_size = sizeof(physec_keygen_config);
     break;
   case PHYSEC_TELEMETRY_KG_INFO:
-    physec_telemetry_keygen_info_t *kg_info =
-        (physec_telemetry_keygen_info_t *)&(packet->data);
+    kg_info = (physec_telemetry_keygen_info_t *)&(packet->data);
     size_t num_bytes = (kg_info->num_bits + 8 - 1) / 8;
     payload_size =
         sizeof(kg_info->key_type) + sizeof(kg_info->num_bits) + num_bytes;

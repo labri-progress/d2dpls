@@ -4,6 +4,7 @@
 #include "physec_config.h"
 #include "stm32l0xx_hal_rng.h"
 #include "subghz_phy_app.h"
+#include "utilities_conf.h"
 
 #include <stdint.h>
 
@@ -17,11 +18,21 @@
 uint8_t bitmap_hamming_weight(lossy_chunk_bitmap_t bitmap);
 void hexlify(uint8_t *buf, size_t size, char *msg, size_t msgsize);
 int pre_process_and_quantize(void);
-void add_quantized_bits_to_physec_key(uint8_t *key_chunk, size_t chunksize); // This function is used to add a number of quantized bits from a set of measurements (equal to the window size) in cases where the quantization is blockwise.
+void add_quantized_bits_to_physec_key(
+    uint8_t *key_chunk,
+    size_t chunksize); // This function is used to add a number of quantized
+                       // bits from a set of measurements (equal to the window
+                       // size) in cases where the quantization is blockwise.
 
-void update_physec_key(uint8_t *new_physec_key, size_t size_new_physec_key_in_bits); // This function is used to update the physec_key in the case of non-blockwise quant, where all measurements are quantized every time a new measurement is added. 
+void update_physec_key(
+    uint8_t *new_physec_key,
+    size_t size_new_physec_key_in_bits); // This function is used to update the
+                                         // physec_key in the case of
+                                         // non-blockwise quant, where all
+                                         // measurements are quantized every
+                                         // time a new measurement is added.
 
-void truncate_physec_key(size_t physec_key_size_in_bits); 
+void truncate_physec_key(size_t physec_key_size_in_bits);
 
 void vigenere_encrypt_decrypt(uint8_t *buf, size_t bufsize, const uint8_t *key,
                               size_t keysize);
@@ -49,7 +60,7 @@ extern uint8_t uart_rx_buf[MAX_UART_BUF_SIZE];
 typedef struct physec_prng_s {
   HAL_StatusTypeDef last_status;
   RNG_HandleTypeDef hrng;
-  char *name;
+  uint8_t *name;
   uint32_t name_len;
 } physec_prng_t;
 
