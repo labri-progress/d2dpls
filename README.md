@@ -152,9 +152,14 @@ You should be able to figure out how to use the tool by looking at the help.
 cargo r --release  # if in the tools/log-analyzer directory
 ```
 
+#### Experiment Configuration using Configuration Files
+
+In order to avoid having to configure each board by hand on every experiment, it is possible to use .toml configuration files in order to express the exact same configurable properties, that can then be loaded onto a board. Those files are placed inside the `tools/stm32-cli/config_files` directory that is then read by `stm32-cli` when choosing the option "Load Paper Scenario Config". The format of those file as well as the translation between the integer values used in the configuration file and the method they represent is explained inside of the auto-generated file at `tools/stm32-cli/experiment_configuration.md`. This file is generated when the tool `stm32-cli` is built in order to ensure the correctness of the mappings.
+
 ![stm32-cli screenshot](./D2DPLS-stm32-cli.png "stm32-cli configuration process")
 
 ### Analyzing the logs
+
 The `log-analyzer` tool allows you to take two log files (Alice and Bob logs) or one single file (either Alice or Bob logs) from an experiment and extract meaningful metrics.
 
 ### Alternative solution: Docker
