@@ -47,72 +47,89 @@ fn generate_libphysec_bindings() {
 
     bindings_content = format!("#![allow(warnings)]\n{}", bindings_content);
 
-    generate_enum_mapping(&bindings_content);
+    generate_experiment_configuration(&bindings_content);
 
     fs::write(bindings_path, bindings_content).expect("Couldn't write bindings");
 }
 
-fn generate_enum_mapping(bindings_content: &str) {
-    // here we build the reverse mapping
-    let regex_boilerplate = |name: &str| format!(r#"pub const ([A-Z_]+): {name} = (\d+)"#);
+struct ExperimentConfiguration {
+    csi: Vec<(String, String)>,
+    pre_process: Vec<(String, String)>,
+    quant: Vec<(String, String)>,
+    recon: Vec<(String, String)>,
+}
 
-    let csi_type_regex = regex_boilerplate("csi_type_t");
-    let pre_process_type_regex = regex_boilerplate("preprocess_type_t");
-    let quant_type_regex = regex_boilerplate("quant_type_t");
-    let recon_type_regex = regex_boilerplate("recon_type_t");
+impl TryFrom<&str> for ExperimentConfiguration {
+    type Error = &'static str;
 
-    let mapping_file_path = PathBuf::from("experiment_configuration.md");
-    let csi_type_regex = Regex::new(&csi_type_regex).unwrap();
-    let pre_process_type_regex = Regex::new(&pre_process_type_regex).unwrap();
-    let quant_type_regex = Regex::new(&quant_type_regex).unwrap();
-    let recon_type_regex = Regex::new(&recon_type_regex).unwrap();
+    fn try_from(bindings_content: &str) -> Result<Self, Self::Error> {
+        let regex_boilerplate = |name: &str| format!(r#"pub const ([A-Z_]+): {name} = (\d+)"#);
+        let csi_type_regex = regex_boilerplate("csi_type_t");
+        let pre_process_type_regex = regex_boilerplate("preprocess_type_t");
+        let quant_type_regex = regex_boilerplate("quant_type_t");
+        let recon_type_regex = regex_boilerplate("recon_type_t");
 
-    let csi_type: String = csi_type_regex
-        .captures_iter(bindings_content)
-        .map(|v| {
-            format!(
-                "- `{}`: {}\n",
-                v.get(1).unwrap().as_str(),
-                v.get(2).unwrap().as_str()
-            )
+        let csi_type_regex = Regex::new(&csi_type_regex).map_err(|_| "Regex Error (csi_type)")?;
+        let pre_process_type_regex =
+            Regex::new(&pre_process_type_regex).map_err(|_| "Regex Error (process_type)")?;
+        let quant_type_regex =
+            Regex::new(&quant_type_regex).map_err(|_| "Regex Error (quant_type)")?;
+        let recon_type_regex =
+            Regex::new(&recon_type_regex).map_err(|_| "Regex Error (recon_type)")?;
+        let csi: Vec<(String, String)> = csi_type_regex
+            .captures_iter(bindings_content)
+            .map(|v| {
+                (
+                    v.get(1).unwrap().as_str().to_string(),
+                    v.get(2).unwrap().as_str().to_string(),
+                )
+            })
+            .collect();
+
+        let pre_process: Vec<(String, String)> = pre_process_type_regex
+            .captures_iter(bindings_content)
+            .map(|v| {
+                (
+                    v.get(1).unwrap().as_str().to_string(),
+                    v.get(2).unwrap().as_str().to_string(),
+                )
+            })
+            .collect();
+
+        let quant: Vec<(String, String)> = quant_type_regex
+            .captures_iter(bindings_content)
+            .map(|v| {
+                (
+                    v.get(1).unwrap().as_str().to_string(),
+                    v.get(2).unwrap().as_str().to_string(),
+                )
+            })
+            .collect();
+
+        let recon: Vec<(String, String)> = recon_type_regex
+            .captures_iter(bindings_content)
+            .map(|v| {
+                (
+                    v.get(1).unwrap().as_str().to_string(),
+                    v.get(2).unwrap().as_str().to_string(),
+                )
+            })
+            .collect();
+
+        Ok(Self {
+            csi,
+            pre_process,
+            quant,
+            recon,
         })
-        .collect();
+    }
+}
 
-    let pre_process_type: String = pre_process_type_regex
-        .captures_iter(bindings_content)
-        .map(|v| {
-            format!(
-                "- `{}`: {}\n",
-                v.get(1).unwrap().as_str(),
-                v.get(2).unwrap().as_str()
-            )
-        })
-        .collect();
-
-    let quant_type: String = quant_type_regex
-        .captures_iter(bindings_content)
-        .map(|v| {
-            format!(
-                "- `{}`: {}\n",
-                v.get(1).unwrap().as_str(),
-                v.get(2).unwrap().as_str()
-            )
-        })
-        .collect();
-
-    let recon_type: String = recon_type_regex
-        .captures_iter(bindings_content)
-        .map(|v| {
-            format!(
-                "- `{}`: {}\n",
-                v.get(1).unwrap().as_str(),
-                v.get(2).unwrap().as_str()
-            )
-        })
-        .collect();
-
-    let markdown_content = format!(
-        r#"# Experiment Config Files
+impl std::fmt::Display for ExperimentConfiguration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            r#"# Experiment Config Files
 
 ## keygen
 
@@ -134,30 +151,54 @@ Method used for acquisition.
 
 `csi_type` (uint8)
 
-{}
-
+"#
+        )?;
+        for (csi_name, csi_v) in &self.csi {
+            write!(f, "- `{csi_name}`: {csi_v}\n")?;
+        }
+        write!(
+            f,
+            r#"
 ### Supported pre-processing:
 
 Processing method applied to acquisition data before quantization; if any.
 
 `pre_process_type` (uint8)
 
-{}
-
+"#
+        )?;
+        for (pre_process_name, pre_process_v) in &self.pre_process {
+            write!(f, "- `{pre_process_name}`: {pre_process_v}\n")?;
+        }
+        write!(
+            f,
+            r#"
 ### Supported quantization methods:
 
 Supported quantization methods, ie. the method used to generate bits from the CSI samples.
 
 `quant_type` (uint8)
 
-{}
-
+"#
+        )?;
+        for (quant_name, quant_v) in &self.quant {
+            write!(f, "- `{quant_name}`: {quant_v}\n")?;
+        }
+        write!(
+            f,
+            r#"
 ### Supported information-reconciliation methods:
 
 `recon_type` (uint8)
 
-{}
-
+"#
+        )?;
+        for (recon_name, recon_v) in &self.recon {
+            write!(f, "- `{recon_name}`: {recon_v}\n")?;
+        }
+        write!(
+            f,
+            r#"
 ### Probe Padding
 
 Number of padding bytes in each probe packet.
@@ -214,11 +255,19 @@ Used modulation, always LoRa.
 
 #### Transmission Power
 
-`tx_power` (uint8)"#,
-        csi_type, pre_process_type, quant_type, recon_type
-    );
+`tx_power` (uint8)"#
+        )?;
+        Ok(())
+    }
+}
 
-    fs::write(mapping_file_path, markdown_content).expect("Couldn't write mapping");
+fn generate_experiment_configuration(binding_content: &str) {
+    let experiment_configuration = ExperimentConfiguration::try_from(binding_content).unwrap();
+
+    let mapping_file_path = PathBuf::from("experiment_configuration.md");
+
+    fs::write(mapping_file_path, format!("{experiment_configuration}"))
+        .expect("Couldn't write mapping");
 }
 
 fn generate_physec_serial_bindings() {
