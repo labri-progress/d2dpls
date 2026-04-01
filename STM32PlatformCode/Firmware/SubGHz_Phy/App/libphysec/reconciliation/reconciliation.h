@@ -8,11 +8,11 @@
 
 typedef enum __attribute__((__packed__)) {
   // Error Correcting Codes + Secure Sketch
-  RECON_ECC_SS = 0,
+  RECON_ECC_SS = 0 | NOT_IMPLEMENTED,
   // Fuzzy Extractors, Sample Then Lock construct
   RECON_FE_STL = 1,
   // Perturbed Compressed Sensing
-  RECON_PCS = 2,
+  RECON_PCS = 2 | NOT_IMPLEMENTED,
   RECON_NUM_TYPE
 } recon_type_t;
 

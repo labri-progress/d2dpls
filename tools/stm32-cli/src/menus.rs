@@ -52,14 +52,33 @@ pub const KEYGEN_MENU_CHOICES: [&str; 9] = [
     "Finish",
 ];
 
+macro_rules! prepare_option_text {
+    ($option_text:literal, $option_enum_value:expr) => {
+        if (($option_enum_value) & (1 << 7) != 0) {
+            concat!($option_text, " (Not Implemented Yet)")
+        } else {
+            $option_text
+        }
+    };
+}
+
 pub const MENU_KG_CSI_IDX_PRSSI: usize = 0;
 pub const MENU_KG_CSI_IDX_REGRSSI: usize = 1;
 pub const MENU_KG_CSI_IDX_ARRSSI: usize = 2;
 
 pub const CSI_MENU_CHOICES: [(&str, csi_type_t); 3] = [
-    ("Packet RSSI", CSI_PACKET_RSSI),
-    ("Register RSSI", CSI_REGISTER_RSSI),
-    ("Adjacent Register RSSI", CSI_ADJACENT_REGISTER_RSSI),
+    (
+        prepare_option_text!("Packet RSSI", CSI_PACKET_RSSI),
+        CSI_PACKET_RSSI,
+    ),
+    (
+        prepare_option_text!("Register RSSI", CSI_REGISTER_RSSI),
+        CSI_REGISTER_RSSI,
+    ),
+    (
+        prepare_option_text!("Adjacent Register RSSI", CSI_ADJACENT_REGISTER_RSSI),
+        CSI_ADJACENT_REGISTER_RSSI,
+    ),
 ];
 
 pub const MENU_KG_PREPROCESS_IDX_SAVGOLAY: usize = 0;
@@ -67,41 +86,74 @@ pub const MENU_KG_PREPROCESS_IDX_KALMAN: usize = 0;
 pub const MENU_KG_PREPROCESS_IDX_RANDOMMODEL: usize = 0;
 
 pub const PREPROCESS_MENU_CHOICES: [(&str, preprocess_type_t); 4] = [
-    ("No preprocessing", PREPROCESS_NONE),
-    ("Savitsky Golay Filtering", PREPROCESS_SAVITSKY_GOLAY),
-    ("Kalman Filtering", PREPROCESS_KALMAN),
-    ("Random Waypoint Model", PREPROCESS_RANDOM_WAYPOINT_MODEL),
+    (
+        prepare_option_text!("No preprocessing", PREPROCESS_NONE),
+        PREPROCESS_NONE,
+    ),
+    (
+        prepare_option_text!("Savitsky Golay Filtering", PREPROCESS_SAVITSKY_GOLAY),
+        PREPROCESS_SAVITSKY_GOLAY,
+    ),
+    (
+        prepare_option_text!("Kalman Filtering", PREPROCESS_KALMAN),
+        PREPROCESS_KALMAN,
+    ),
+    (
+        prepare_option_text!("Random Waypoint Model", PREPROCESS_RANDOM_WAYPOINT_MODEL),
+        PREPROCESS_RANDOM_WAYPOINT_MODEL,
+    ),
 ];
 
 pub const QUANT_MENU_CHOICES: [(&str, quant_type_t); 9] = [
     (
-        "Multi-Bit Range-based level-crossing (FLoRa)",
+        prepare_option_text!(
+            "Multi-Bit Range-based level-crossing (FLoRa)",
+            QUANT_MBR_LOSSLESS
+        ),
         QUANT_MBR_LOSSLESS,
     ),
     (
-        "Multi-Bit Entropy-based level-crossing (LoRa-Key)",
+        prepare_option_text!(
+            "Multi-Bit Entropy-based level-crossing (LoRa-Key)",
+            QUANT_MBE_LOSSY
+        ),
         QUANT_MBE_LOSSY,
     ),
     (
-        "Lossy Single-Bit Differential level-crossing",
+        prepare_option_text!(
+            "Lossy Single-Bit Differential level-crossing",
+            QUANT_SB_DIFF_LOSSY
+        ),
         QUANT_SB_DIFF_LOSSY,
     ),
     (
-        "Lossy Single-Bit Excursion level-crossing",
+        prepare_option_text!(
+            "Lossy Single-Bit Excursion level-crossing",
+            QUANT_SB_EXCURSION_LOSSY
+        ),
         QUANT_SB_EXCURSION_LOSSY,
     ),
     (
-        "Lossy Multi-Bit Excursion level-crossing",
+        prepare_option_text!(
+            "Lossy Multi-Bit Excursion level-crossing",
+            QUANT_MB_EXCURSION_LOSSY
+        ),
         QUANT_MB_EXCURSION_LOSSY,
     ),
     ("Single-Bit level-crossing", QUANT_SB_LOSSLESS),
     (
-        "Single-Bit level-crossing blockwise",
+        prepare_option_text!(
+            "Single-Bit level-crossing blockwise",
+            QUANT_SB_LOSSLESS_BLOCKWISE
+        ),
         QUANT_SB_LOSSLESS_BLOCKWISE,
     ),
     ("Lossy Single-Bit level-crossing", QUANT_SB_LOSSY),
     (
-        "Lossy Single-Bit level-crossing blockwise",
+        prepare_option_text!(
+            "Lossy Single-Bit level-crossing blockwise",
+            QUANT_SB_LOSSY_BLOCKWISE
+        ),
         QUANT_SB_LOSSY_BLOCKWISE,
     ),
 ];
@@ -111,9 +163,18 @@ pub const MENU_KG_RECON_IDX_PCS: usize = 1;
 pub const MENU_KG_RECON_IDX_ECC_SS: usize = 2;
 
 pub const RECON_MENU_CHOICES: [(&str, recon_type_t); 3] = [
-    ("Fuzzy Extractors", RECON_FE_STL),
-    ("Perturbed Compressed Sensing", RECON_PCS),
-    ("ECC with Secure-Sketch", RECON_ECC_SS),
+    (
+        prepare_option_text!("Fuzzy Extractors", RECON_FE_STL),
+        RECON_FE_STL,
+    ),
+    (
+        prepare_option_text!("Perturbed Compressed Sensing", RECON_PCS),
+        RECON_PCS,
+    ),
+    (
+        prepare_option_text!("ECC with Secure-Sketch", RECON_ECC_SS),
+        RECON_ECC_SS,
+    ),
 ];
 
 pub const RADIO_MENU_CHOICES: [&str; 1] = ["LoRa"];

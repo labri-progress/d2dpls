@@ -21,9 +21,9 @@ Method used for acquisition.
 `csi_type` (uint8)
 
 - `CSI_PACKET_RSSI`: 0
-- `CSI_REGISTER_RSSI`: 1
-- `CSI_ADJACENT_REGISTER_RSSI`: 2
-- `CSI_CLSSI`: 3
+- `CSI_REGISTER_RSSI`: 129 (Not Implemented Yet)
+- `CSI_ADJACENT_REGISTER_RSSI`: 130 (Not Implemented Yet)
+- `CSI_CLSSI`: 131 (Not Implemented Yet)
 - `CSI_NUM_TYPE`: 4
 
 ### Supported pre-processing:
@@ -33,9 +33,9 @@ Processing method applied to acquisition data before quantization; if any.
 `pre_process_type` (uint8)
 
 - `PREPROCESS_NONE`: 0
-- `PREPROCESS_SAVITSKY_GOLAY`: 1
-- `PREPROCESS_KALMAN`: 2
-- `PREPROCESS_RANDOM_WAYPOINT_MODEL`: 3
+- `PREPROCESS_SAVITSKY_GOLAY`: 129 (Not Implemented Yet)
+- `PREPROCESS_KALMAN`: 130 (Not Implemented Yet)
+- `PREPROCESS_RANDOM_WAYPOINT_MODEL`: 131 (Not Implemented Yet)
 - `PREPROCESS_NUM_TYPE`: 4
 
 ### Supported quantization methods:
@@ -59,10 +59,10 @@ Supported quantization methods, ie. the method used to generate bits from the CS
 
 `recon_type` (uint8)
 
-- `RECON_ECC_SS`: 0
+- `RECON_ECC_SS`: 128 (Not Implemented Yet)
 - `RECON_FE_STL`: 1
-- `RECON_PCS`: 2
-- `RECON_NUM_TYPE`: 3
+- `RECON_PCS`: 130 (Not Implemented Yet)
+- `RECON_NUM_TYPE`: 131 (Not Implemented Yet)
 
 ### Probe Padding
 

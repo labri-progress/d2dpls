@@ -59,62 +59,82 @@ struct ExperimentConfiguration {
     recon: Vec<(String, String)>,
 }
 
+macro_rules! enum_member_is_implemented {
+    ($enum_value:expr) => {
+        if ($enum_value.parse::<u32>().unwrap_or(0) & (1u32 << 7)) == (1 << 7) {
+            " (Not Implemented Yet)"
+        } else {
+            ""
+        }
+    };
+}
+
+macro_rules! binding_type_regex_boilerplate {
+    ($name:literal) => {
+        concat!(r"pub const ([A-Z_]+): ", $name, r" = (\d+)")
+    };
+}
+
+macro_rules! binding_type_regex_error {
+    ($regex_name:literal) => {
+        |_| concat!("Regex Error (", $regex_name, ")")
+    };
+}
+
+macro_rules! binding_regex_to_values {
+    ($regex_source:expr, $binding_content:expr) => {
+        $regex_source
+            .captures_iter($binding_content)
+            .map(|v| {
+                (
+                    v.get(1).unwrap().as_str().to_string(),
+                    v.get(2).unwrap().as_str().to_string(),
+                )
+            })
+            .collect()
+    };
+}
+
+macro_rules! decompose_enum_kv {
+    ($f:expr, $enum_src:expr) => {
+        for (k, v) in $enum_src {
+            write!(
+                $f,
+                "- `{k}`: {v}{}\n",
+                enum_member_is_implemented!(v)
+            )?;
+        }
+    };
+}
+
 impl TryFrom<&str> for ExperimentConfiguration {
     type Error = &'static str;
 
     fn try_from(bindings_content: &str) -> Result<Self, Self::Error> {
-        let regex_boilerplate = |name: &str| format!(r#"pub const ([A-Z_]+): {name} = (\d+)"#);
-        let csi_type_regex = regex_boilerplate("csi_type_t");
-        let pre_process_type_regex = regex_boilerplate("preprocess_type_t");
-        let quant_type_regex = regex_boilerplate("quant_type_t");
-        let recon_type_regex = regex_boilerplate("recon_type_t");
+        let csi_type_regex = binding_type_regex_boilerplate!("csi_type_t");
+        let pre_process_type_regex = binding_type_regex_boilerplate!("preprocess_type_t");
+        let quant_type_regex = binding_type_regex_boilerplate!("quant_type_t");
+        let recon_type_regex = binding_type_regex_boilerplate!("recon_type_t");
 
-        let csi_type_regex = Regex::new(&csi_type_regex).map_err(|_| "Regex Error (csi_type)")?;
-        let pre_process_type_regex =
-            Regex::new(&pre_process_type_regex).map_err(|_| "Regex Error (process_type)")?;
+        let csi_type_regex =
+            Regex::new(&csi_type_regex).map_err(binding_type_regex_error!("test"))?;
+        let pre_process_type_regex = Regex::new(&pre_process_type_regex)
+            .map_err(binding_type_regex_error!("pre_process_type"))?;
         let quant_type_regex =
-            Regex::new(&quant_type_regex).map_err(|_| "Regex Error (quant_type)")?;
+            Regex::new(&quant_type_regex).map_err(binding_type_regex_error!("quant_type"))?;
         let recon_type_regex =
-            Regex::new(&recon_type_regex).map_err(|_| "Regex Error (recon_type)")?;
-        let csi: Vec<(String, String)> = csi_type_regex
-            .captures_iter(bindings_content)
-            .map(|v| {
-                (
-                    v.get(1).unwrap().as_str().to_string(),
-                    v.get(2).unwrap().as_str().to_string(),
-                )
-            })
-            .collect();
+            Regex::new(&recon_type_regex).map_err(binding_type_regex_error!("recon_type"))?;
 
-        let pre_process: Vec<(String, String)> = pre_process_type_regex
-            .captures_iter(bindings_content)
-            .map(|v| {
-                (
-                    v.get(1).unwrap().as_str().to_string(),
-                    v.get(2).unwrap().as_str().to_string(),
-                )
-            })
-            .collect();
+        let csi: Vec<(String, String)> = binding_regex_to_values!(csi_type_regex, bindings_content);
 
-        let quant: Vec<(String, String)> = quant_type_regex
-            .captures_iter(bindings_content)
-            .map(|v| {
-                (
-                    v.get(1).unwrap().as_str().to_string(),
-                    v.get(2).unwrap().as_str().to_string(),
-                )
-            })
-            .collect();
+        let pre_process: Vec<(String, String)> =
+            binding_regex_to_values!(pre_process_type_regex, bindings_content);
 
-        let recon: Vec<(String, String)> = recon_type_regex
-            .captures_iter(bindings_content)
-            .map(|v| {
-                (
-                    v.get(1).unwrap().as_str().to_string(),
-                    v.get(2).unwrap().as_str().to_string(),
-                )
-            })
-            .collect();
+        let quant: Vec<(String, String)> =
+            binding_regex_to_values!(quant_type_regex, bindings_content);
+
+        let recon: Vec<(String, String)> =
+            binding_regex_to_values!(recon_type_regex, bindings_content);
 
         Ok(Self {
             csi,
@@ -153,9 +173,7 @@ Method used for acquisition.
 
 "#
         )?;
-        for (csi_name, csi_v) in &self.csi {
-            write!(f, "- `{csi_name}`: {csi_v}\n")?;
-        }
+        decompose_enum_kv!(f, &self.csi);
         write!(
             f,
             r#"
@@ -167,9 +185,7 @@ Processing method applied to acquisition data before quantization; if any.
 
 "#
         )?;
-        for (pre_process_name, pre_process_v) in &self.pre_process {
-            write!(f, "- `{pre_process_name}`: {pre_process_v}\n")?;
-        }
+        decompose_enum_kv!(f, &self.pre_process);
         write!(
             f,
             r#"
@@ -181,9 +197,7 @@ Supported quantization methods, ie. the method used to generate bits from the CS
 
 "#
         )?;
-        for (quant_name, quant_v) in &self.quant {
-            write!(f, "- `{quant_name}`: {quant_v}\n")?;
-        }
+        decompose_enum_kv!(f, &self.quant);
         write!(
             f,
             r#"
@@ -193,9 +207,7 @@ Supported quantization methods, ie. the method used to generate bits from the CS
 
 "#
         )?;
-        for (recon_name, recon_v) in &self.recon {
-            write!(f, "- `{recon_name}`: {recon_v}\n")?;
-        }
+        decompose_enum_kv!(f, &self.recon);
         write!(
             f,
             r#"

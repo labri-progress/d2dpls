@@ -31,6 +31,8 @@ typedef int16_t csi_t;
 typedef int16_t csi_t;
 #endif
 
+#define NOT_IMPLEMENTED 1<<7
+
 typedef struct physec_prng_s physec_prng_t;
 
 struct density {
