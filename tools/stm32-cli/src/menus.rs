@@ -54,7 +54,7 @@ pub const KEYGEN_MENU_CHOICES: [&str; 9] = [
 
 macro_rules! prepare_option_text {
     ($option_text:literal, $option_enum_value:expr) => {
-        if (($option_enum_value) & (1 << 7) != 0) {
+        if (($option_enum_value) & NOT_IMPLEMENTED != 0) {
             concat!($option_text, " (Not Implemented Yet)")
         } else {
             $option_text
@@ -213,7 +213,7 @@ pub(crate) fn choose_csi() -> libphysec::csi_type_t {
         .interact()
         .unwrap();
 
-    CSI_MENU_CHOICES[choice].1
+        CSI_MENU_CHOICES[choice].1
 }
 
 pub(crate) fn choose_pre_process() -> libphysec::preprocess_type_t {
