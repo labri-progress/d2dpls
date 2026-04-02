@@ -26,7 +26,7 @@ lazy_static! {
 /// determining the payload size.
 /// This helps harmnozing the serializing/deserializing
 /// of main packets `PHYsecConfigPacket` and `PHYsecTelemetryPacket`
-pub trait PHYsecPayload: Debug  {
+pub trait PHYsecPayload: Debug {
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(input: &[u8]) -> IResult<&[u8], Self>
     where

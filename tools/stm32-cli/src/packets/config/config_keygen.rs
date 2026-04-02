@@ -2,9 +2,11 @@ use nom::{bytes::streaming::take, number::streaming::le_u16, IResult};
 use serde::Deserialize;
 
 use crate::physec_bindings::libphysec::{
-    CSI_PACKET_RSSI, PREPROCESS_SAVITSKY_GOLAY, QUANT_MBR_LOSSLESS, RECON_ECC_SS, 
+    CSI_PACKET_RSSI, PREPROCESS_SAVITSKY_GOLAY, QUANT_MBR_LOSSLESS, RECON_ECC_SS,
 };
-use crate::physec_bindings::physec_serial::{DEFAULT_KEYGEN_ID, PHYSEC_PROBE_DELAY, PHYSEC_PROBE_PADDING};
+use crate::physec_bindings::physec_serial::{
+    DEFAULT_KEYGEN_ID, PHYSEC_PROBE_DELAY, PHYSEC_PROBE_PADDING,
+};
 
 use super::PHYsecPayload;
 
@@ -66,16 +68,20 @@ impl Default for KeyGenConfigPacket {
 
 impl PHYsecPayload for KeyGenConfigPacket {
     fn to_bytes(&self) -> Vec<u8> {
-        [vec![
-            self.is_master as u8,
-            self.keygen_id,
-            self.csi_type,
-            self.pre_process_type,
-            self.quant_type,
-            self.recon_type,
-            self.probe_padding,
-        ],
-        self.probe_delay.to_le_bytes().to_vec()].concat().to_vec()
+        [
+            vec![
+                self.is_master as u8,
+                self.keygen_id,
+                self.csi_type,
+                self.pre_process_type,
+                self.quant_type,
+                self.recon_type,
+                self.probe_padding,
+            ],
+            self.probe_delay.to_le_bytes().to_vec(),
+        ]
+        .concat()
+        .to_vec()
     }
 
     fn from_bytes(input: &[u8]) -> IResult<&[u8], Self> {

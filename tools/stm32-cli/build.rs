@@ -98,11 +98,7 @@ macro_rules! binding_regex_to_values {
 macro_rules! decompose_enum_kv {
     ($f:expr, $enum_src:expr) => {
         for (k, v) in $enum_src {
-            write!(
-                $f,
-                "- `{k}`: {v}{}\n",
-                enum_member_is_implemented!(v)
-            )?;
+            write!($f, "- `{k}`: {v}{}\n", enum_member_is_implemented!(v))?;
         }
     };
 }

@@ -33,7 +33,10 @@ impl PLSConfig {
 
         match toml::from_str(&file_content) {
             Ok(c) => Ok(c),
-            Err(e) => Err(format!("Error parsing config file `{}`: {}", config_file, e)),
+            Err(e) => Err(format!(
+                "Error parsing config file `{}`: {}",
+                config_file, e
+            )),
         }
     }
 

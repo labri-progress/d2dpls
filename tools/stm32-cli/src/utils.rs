@@ -26,5 +26,5 @@ macro_rules! plist {
 
 pub(crate) use perr;
 pub(crate) use pinfo;
-pub(crate) use plog;
 pub(crate) use plist;
+pub(crate) use plog;
