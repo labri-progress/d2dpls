@@ -54,7 +54,7 @@ pub const KEYGEN_MENU_CHOICES: [&str; 9] = [
 
 macro_rules! prepare_option_text {
     ($option_text:literal, $option_enum_value:expr) => {
-        if (($option_enum_value) & NOT_IMPLEMENTED != 0) {
+        if (($option_enum_value) & NOT_IMPLEMENTED as u8 != 0) {
             concat!($option_text, " (Not Implemented Yet)")
         } else {
             $option_text
