@@ -31,6 +31,7 @@ uint32_t lora_time_on_air(uint8_t sf, uint8_t bw, uint8_t preamble_len,
   UNUSED(payload_len);
   UNUSED(crc_on);
   // TODO: use semtech's formula to calulcate airtime
+  // =====> actually just the one provided by the FW ^^
   return 0;
 }
 
