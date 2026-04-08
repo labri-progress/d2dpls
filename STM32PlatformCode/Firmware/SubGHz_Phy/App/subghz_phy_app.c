@@ -341,13 +341,19 @@ void SubghzApp_Init(void) {
     }
   }
 
-  /*starts reception*/
-  Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
   /*register task to to be run in while(1) after Radio IT*/
   UTIL_SEQ_RegTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process), UTIL_SEQ_RFU,
                    PHYsec_Platform_Process);
   cmox_init(); // init cmox STM32 module
   fe_stl_init();
+
+  if (physec_conf.keygen.is_master) {
+    UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process), CFG_SEQ_Prio_0);
+    State = TX_FIRST_PROBE;
+  } else {
+    /*starts reception*/
+    Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
+  }
 
   /* USER CODE END SubghzApp_Init_2 */
 }
@@ -1262,6 +1268,17 @@ keep_going:
       }
     } else if (packet_validity == PHYSEC_UNRELATED_PACKET) {
       tm_plog(TS_ON, VLEVEL_H, "< Unrelated PHYsec packet received.\n\r");
+      // reentry
+      State = UNRELATED_RX;
+      // random small delay
+      uint32_t random_byte = Radio.Random() & 0xFF;
+      float random_multiplier = (float)random_byte / 0xFF;
+      uint32_t random_delay = (uint32_t)(random_multiplier * (float)physec_conf.keygen.probe_delay);
+
+      tm_plog(TS_ON, VLEVEL_H, "Waiting for %dms\n\r", random_delay);
+      HAL_Delay(random_delay);
+      UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process), CFG_SEQ_Prio_0);
+      return;
     } else {
       char msg[MAX_APP_BUFFER_SIZE * 2 + 1] = {0};
       hexlify(BufferRx, RxBufferSize, msg, sizeof(msg));
@@ -1277,8 +1294,15 @@ keep_going:
     break;
   case RX_TIMEOUT:
   case RX_ERROR:
-    // Handle retransmission in case of Error/Timeout
     tm_plog(TS_ON, VLEVEL_M, "[Timeout/Error]\r\n");
+    goto handler;
+  case UNRELATED_RX:
+    tm_plog(TS_ON, VLEVEL_M, "[Unrelated Packet]\r\n");
+    goto handler;
+  case TX_FIRST_PROBE:
+    tm_plog(TS_ON, VLEVEL_M, "[First Probe]\r\n");
+  handler:
+    // Handle retransmission in case of Error/Timeout
 
     switch (physec_state) {
     case PHYSEC_STATE_PRE_RECONCILIATION: {

@@ -17,6 +17,8 @@ typedef enum {
   RX_ERROR,
   TX,
   TX_TIMEOUT,
+  TX_FIRST_PROBE,
+  UNRELATED_RX,
 } States_t;
 
 // keep track of a reset
