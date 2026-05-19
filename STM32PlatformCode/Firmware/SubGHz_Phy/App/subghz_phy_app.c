@@ -400,7 +400,7 @@ void SubghzApp_Init(void) {
                    PHYsec_Platform_Process);
   cmox_init(); // init cmox STM32 module
   fe_stl_init();
-  reset_physec_states();
+  reset_physec_states(true);
   if (physec_conf.keygen.is_master) {
     UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process),
                      CFG_SEQ_Prio_0);
@@ -1536,8 +1536,10 @@ void handle_user_button(void) {
   reset_handler(USER_BTN);
 }
 
-void reset_physec_states(void) {
-  tm_plog(TS_ON, VLEVEL_M, "Performing Reset !\r\n");
+void reset_physec_states(bool first_reset) {
+  if (!first_reset) {
+    tm_plog(TS_ON, VLEVEL_M, "Performing Reset !\r\n");
+  }
   update_physec_state(PHYSEC_STATE_PROBING);
   physec_key_num_bits = 0;
 

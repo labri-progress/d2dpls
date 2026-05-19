@@ -193,7 +193,7 @@ void reset_handler(int requested_transition) {
         reset_state = WAIT_RST;
       }
       send_rst();
-      reset_physec_states();
+      reset_physec_states(false);
       tm_plog(TS_ON, VLEVEL_M, "Performing Reset");
     } else if (requested_transition == RECV_RST) {
       if (is_master) {
@@ -203,7 +203,7 @@ void reset_handler(int requested_transition) {
         send_rst_ack();
         reset_state = WAIT_PROBE;
       }
-      reset_physec_states();
+      reset_physec_states(false);
     }
     break;
   case WAIT_RST:

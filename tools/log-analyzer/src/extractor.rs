@@ -133,7 +133,7 @@ impl Extractor {
         }
 
         let keygen_conf_regex = Regex::new(
-            r"(?m)^Master: (true|false), CSI Type: (\d+), Pre-process Type: (\d+), Quant Type: (\d+), Recon Type: (\d+), Probe Delay: (\d+)$"
+            r"(?m)^Keygen ID: (\d+), Master: (true|false), CSI Type: (\d+), Pre-process Type: (\d+), Quant Type: (\d+), Recon Type: (\d+), Probe Delay: (\d+)$"
         ).map_err(|e| ExtractorError::RegexError(format!("Failed to compile keygen_conf regex: {e}")))?;
 
         let start_keygen_regex = Regex::new(&format!(
@@ -517,37 +517,38 @@ impl Extractor {
             ExtractorError::ConfigError(format!("missing {field} field"))
         }
 
-        let is_master = *(conf.first().ok_or_else(|| config_error("is_master"))?) == "true";
+        // TODO: do something w/ keygen id
+        let is_master = *(conf.get(1).ok_or_else(|| config_error("is_master"))?) == "true";
         let csi_type = csi_type_t::retrieve(
-            conf.get(1)
+            conf.get(2)
                 .ok_or_else(|| config_error("csi_type"))?
                 .parse::<usize>()
                 .map_err(|_| parse_error("csi_type"))?,
         )
         .map_err(|_| parse_error("csi_type"))?;
         let pre_process_type = preprocess_type_t::retrieve(
-            conf.get(2)
+            conf.get(3)
                 .ok_or_else(|| config_error("pre_process_type"))?
                 .parse::<usize>()
                 .map_err(|_| parse_error("pre_process_type"))?,
         )
         .map_err(|_| parse_error("pre_process_type"))?;
         let quant_type = quant_type_t::retrieve(
-            conf.get(3)
+            conf.get(4)
                 .ok_or_else(|| config_error("quant_type"))?
                 .parse::<usize>()
                 .map_err(|_| parse_error("quant_type"))?,
         )
         .map_err(|_| parse_error("quant_type"))?;
         let recon_type = recon_type_t::retrieve(
-            conf.get(4)
+            conf.get(5)
                 .ok_or_else(|| config_error("recon_type"))?
                 .parse::<usize>()
                 .map_err(|_| parse_error("recon_type"))?,
         )
         .map_err(|_| parse_error("recon_type"))?;
         let probe_delay = conf
-            .get(5)
+            .get(6)
             .ok_or_else(|| config_error("probe_delay"))?
             .parse::<usize>()
             .map_err(|_| parse_error("probe_delay"))?;

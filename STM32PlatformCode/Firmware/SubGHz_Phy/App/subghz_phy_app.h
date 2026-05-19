@@ -226,7 +226,7 @@ void handle_user_button(void);
 /**
  * @brief Reset the PhySec states to default
  */
-void reset_physec_states(void);
+void reset_physec_states(bool);
 void wait_physec_config(void);
 
 void PHYsec_Platform_Process(void);
