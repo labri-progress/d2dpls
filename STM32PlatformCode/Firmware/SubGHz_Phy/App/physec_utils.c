@@ -19,6 +19,7 @@ void prng_init(physec_prng_t *prng, char *name, uint32_t name_len) {
     FAIL("failed initializing");
   }
 }
+
 void get_random_bytes(uint8_t *buf, uint32_t buf_size, physec_prng_t *prng) {
   if (prng->hrng.State != HAL_RNG_STATE_READY) {
     FAIL("prng not ready");

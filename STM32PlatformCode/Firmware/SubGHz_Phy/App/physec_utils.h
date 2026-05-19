@@ -36,6 +36,7 @@ void truncate_physec_key(size_t physec_key_size_in_bits);
 
 void vigenere_encrypt_decrypt(uint8_t *buf, size_t bufsize, const uint8_t *key,
                               size_t keysize);
+
 /* === Platform Global Variables === */
 
 extern physec_config physec_conf;

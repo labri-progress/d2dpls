@@ -180,6 +180,8 @@ void send_rst_ack(void) {
 // WAIT_PROBE -- TIMEOUT --> SEND_ACK
 // WAIT_PROBE -- PROBE --> NOT_RSTING
 void reset_handler(int requested_transition) {
+  // TODO:
+  // - user button only works once for now, might be an idea to make it always do a kg reset?
   bool is_master = physec_conf.keygen.is_master;
   switch (reset_state) {
   case NOT_RSTING:

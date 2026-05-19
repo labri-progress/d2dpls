@@ -16,8 +16,8 @@ impl PHYsecTelemetry for TelemetryKeyGenConfig {
         let probe_delay_ptr = std::ptr::addr_of!(self.probe_delay);
         let probe_delay = unsafe { probe_delay_ptr.read_unaligned() };
         format!(
-            "Master: {}, CSI Type: {}, Pre-process Type: {}, Quant Type: {}, Recon Type: {}, Probe Delay: {}",
-            self.is_master, self.csi_type, self.pre_process_type, self.quant_type, self.recon_type, probe_delay
+            "Keygen ID: {}, Master: {}, CSI Type: {}, Pre-process Type: {}, Quant Type: {}, Recon Type: {}, Probe Delay: {}",
+            self.keygen_id, self.is_master, self.csi_type, self.pre_process_type, self.quant_type, self.recon_type, probe_delay
         )
     }
 }

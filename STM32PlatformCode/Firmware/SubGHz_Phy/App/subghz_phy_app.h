@@ -237,7 +237,7 @@ enum {
   QUANT_STATUS_DONE,
 };
 
-enum {
+typedef enum {
   // waiting for probe packet
   // to respond to
   PHYSEC_STATE_PROBING,
@@ -256,7 +256,7 @@ enum {
   PHYSEC_STATE_RECONCILIATION,
   // Final State, symmetric encryption possible
   PHYSEC_STATE_KEY_READY
-};
+} physec_state_t;
 
 // Return codes for handle_keygen
 enum {
@@ -267,6 +267,8 @@ enum {
   KG_DONE,
   KG_SLAVE_DONE,
 };
+
+#define TRIGGER_DURATION_CYCLES 15000
 
 /* USER CODE END EFP */
 

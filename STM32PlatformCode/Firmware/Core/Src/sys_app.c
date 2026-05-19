@@ -27,6 +27,8 @@
 #include "stm32_seq.h"
 #include "stm32_systime.h"
 #include "stm32_lpm.h"
+#include "stm32l072xx.h"
+#include "stm32l0xx_hal_rcc.h"
 #include "utilities_def.h"
 #include "sys_debug.h"
 #include "rtc_if.h"
@@ -34,6 +36,8 @@
 /* USER CODE BEGIN Includes */
 #include "usart.h"
 #include "dma.h"
+#include "stm32l0xx_hal.h"
+#include "stm32l0xx_hal_gpio.h"
 
 /* USER CODE END Includes */
 

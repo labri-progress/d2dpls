@@ -75,9 +75,10 @@ HAL_StatusTypeDef physec_config_write_eeprom(uint8_t offset_address,
   buffer[offset++] = config->physical_layer.lora.bw;
   buffer[offset++] = config->physical_layer.lora.power;
 
+  /* modif Lucas: deux derniers octets = 0xAB 0xCD pour éviter de considérer comme valide une mémoire entièrement à 0 (causait des bugs sur les cartes sans config) */
   // Question si nécessaire de padder les 2 dernierers cases du tableau buffer
-  buffer[offset++] = 0x00; // alignement
-  buffer[offset++] = 0x00; // alignement
+  buffer[offset++] = 0xAB; // alignement
+  buffer[offset++] = 0xCD; // alignement
 
   status = HAL_FLASHEx_DATAEEPROM_Unlock();
   offset = 0;
@@ -131,7 +132,7 @@ bool physec_config_read_eeprom(uint8_t offset_address, physec_config *config) {
   config->physical_layer.lora.power = buffer[offset++];
 
   // check si config overflow
-  if (buffer[offset++] != 0x00 || buffer[offset++] != 0x00) {
+  if (buffer[offset++] != 0xAB || buffer[offset++] != 0xCD) {
     /*padding issue*/
     return false;
   }
