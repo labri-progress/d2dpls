@@ -70,6 +70,7 @@ typedef enum {
   PHYSEC_KEYGEN_TYPE_RETRANSMISSION_REQ = 1,
   PHYSEC_KEYGEN_TYPE_ERROR = 2,
   PHYSEC_KEYGEN_TYPE_DONE = 3, // slave finished quant
+  PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY,  // used for ECDH
 } physec_keygen_type_t;
 
 /*!

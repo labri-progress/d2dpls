@@ -13,6 +13,7 @@ typedef enum __attribute__((__packed__)) {
   RECON_FE_STL = 1,
   // Perturbed Compressed Sensing
   RECON_PCS = 2 | NOT_IMPLEMENTED,
+  RECON_ECDH = 3,
   RECON_NUM_TYPE
 } recon_type_t;
 

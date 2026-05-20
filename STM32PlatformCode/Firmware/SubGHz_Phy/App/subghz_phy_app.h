@@ -231,6 +231,21 @@ void wait_physec_config(void);
 
 void PHYsec_Platform_Process(void);
 
+/* ECDH related */
+/**
+ * @brief Initializes ctx for ECDH as well as pub/priv keys
+ */
+void init_ecdh(void);
+void generate_pub_priv_keys(void);
+
+/**
+ * @brief Computes the shared secret after reception of peer's pub key
+ */
+void compute_shared_secret(void);
+/**
+ * @brief Generates the AES key from the shared secret. The AES key being 128 bits, it's the shared secret passed through a one-way hash function, keeping only the first 128 bits */
+void compute_aes_key_from_shared_secret(void);
+
 enum {
   QUANT_STATUS_WAITING,
   QUANT_STATUS_FAILURE,

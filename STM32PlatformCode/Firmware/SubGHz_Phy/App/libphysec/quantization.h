@@ -57,6 +57,7 @@ typedef enum __attribute__((__packed__)) {
   QUANT_SB_LOSSY = (7) << 2 | QUANT_LOSSY_MASK,                        // 29
   QUANT_SB_LOSSY_BLOCKWISE =
       (7) << 2 | QUANT_LOSSY_MASK | QUANT_BLOCKWISE_MASK, // 31
+  QUANT_ECDH = 1 | (1) << 2 | (1) << 4  // 21
 } quant_type_t;
 
 // typedef enum __attribute__((__packed__)) {

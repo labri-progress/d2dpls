@@ -36,6 +36,8 @@
 
 #include "app_version.h"
 #include "cmox_crypto.h"
+#include "ecc/cmox_ecc.h"
+#include "ecc/cmox_ecc_retvals.h"
 #include "hash/cmox_sha256.h"
 #include "physec_config.h"
 #include "physec_radio.h"
@@ -43,7 +45,9 @@
 #include "physec_utils.h"
 #include "platform.h"
 #include "stm32_mem.h"
+#include "stm32l072xx.h"
 #include "stm32l0xx_hal.h"
+#include "stm32l0xx_hal_def.h"
 #include "stm32l0xx_hal_rng.h"
 #include "stm32l0xx_hal_uart.h"
 #include "sx1276.h"
@@ -113,6 +117,28 @@ struct {
   bool recon_signal_sent;
   bool kg_end_signal_sent;
 } trigger_signals = {0};
+
+/* related to ECDH */
+#define ECC_BUFFER_LEN (2000) // used to construct ECC
+/* struct handling the whole ECDH context */
+struct {
+  /* related to internal cmox ctx */
+  struct {
+    cmox_ecc_handle_t handle;
+    uint8_t buffer[ECC_BUFFER_LEN];
+    physec_prng_t rng;
+  } ctx;
+  /* related to our own pub/priv keys */
+  struct {
+    uint8_t pubkey_buffer[CMOX_ECC_CURVE25519_PUBKEY_LEN];
+    uint8_t privkey_buffer[CMOX_ECC_CURVE25519_PRIVKEY_LEN];
+  } keys;
+  /* related to ongoing keygen */
+  struct {
+    uint8_t peer_public_key[CMOX_ECC_CURVE25519_PUBKEY_LEN];
+    uint8_t shared_secret[CMOX_ECC_CURVE25519_PRIVKEY_LEN];
+  } session;
+} ecdh_state = {0};
 
 uint8_t physec_key[KEY_CAPACITY_IN_BYTES] = {0};
 int16_t physec_key_num_bits = -1;
@@ -221,6 +247,133 @@ static void update_physec_state(physec_state_t next_state) {
   physec_state = next_state;
 }
 
+char *get_ecc_retval_string(cmox_ecc_retval_t value) {
+  switch (value) {
+  case CMOX_ECC_SUCCESS:
+    return "ECC: Success";
+  case CMOX_ECC_ERR_INTERNAL:
+    return "ECC: Internal Error";
+  case CMOX_ECC_ERR_BAD_PARAMETERS:
+    return "ECC: Bad Parameters";
+  case CMOX_ECC_ERR_INVALID_PUBKEY:
+    return "ECC: Invalid Pubkey";
+  case CMOX_ECC_ERR_WRONG_RANDOM:
+    return "ECC: Wrong Random";
+  case CMOX_ECC_ERR_MEMORY_FAIL:
+    return "ECC: Memory Fail";
+  case CMOX_ECC_ERR_MATHCURVE_MISMATCH:
+    return "ECC: Math Curve Mismatch";
+  case CMOX_ECC_ERR_ALGOCURVE_MISMATCH:
+    return "ECC: Algo Curve Mismatch";
+  default:
+    return "ECC: Unknown Error Value";
+  }
+}
+
+char *get_hash_retval_string(cmox_hash_retval_t value) {
+  switch (value) {
+  case CMOX_HASH_SUCCESS:
+    return "Hash: Success";
+  case CMOX_HASH_ERR_INTERNAL:
+    return "Hash: Internal Error";
+  case CMOX_HASH_ERR_BAD_PARAMETER:
+    return "Hash: Bad Parameters";
+  case CMOX_HASH_ERR_BAD_OPERATION:
+    return "Hash: Bad Operation";
+  case CMOX_HASH_ERR_BAD_TAG_SIZE:
+    return "Hash: Bad Tag Size";
+  default:
+    return "Hash: Unknown Error Value";
+  }
+}
+
+char *get_cipher_retval_string(cmox_cipher_retval_t value) {
+  switch (value) {
+  case CMOX_CIPHER_SUCCESS:
+    return "Cipher: Success";
+  case CMOX_CIPHER_ERR_INTERNAL:
+    return "Cipher: Internal Error";
+  case CMOX_CIPHER_ERR_NOT_IMPLEMENTED:
+    return "Cipher: Not Implemented";
+  case CMOX_CIPHER_ERR_BAD_PARAMETER:
+    return "Cipher: Bad Parameters";
+  case CMOX_CIPHER_ERR_BAD_OPERATION:
+    return "Cipher: Bad Operation";
+  case CMOX_CIPHER_ERR_BAD_INPUT_SIZE:
+    return "Cipher: Bad Input Size";
+  case CMOX_CIPHER_AUTH_SUCCESS:
+    return "Cipher: Auth Success";
+  case CMOX_CIPHER_AUTH_FAIL:
+    return "Cipher: Auth Failure";
+  default:
+    return "Cipher: Unknown Error Value";
+  }
+}
+
+void init_ecdh(void) {
+  cmox_ecc_construct(&ecdh_state.ctx.handle, CMOX_MATH_FUNCS_SMALL,
+                     ecdh_state.ctx.buffer, ECC_BUFFER_LEN);
+  // no need to enable RNG clock as RNG is already supposed initialized
+  prng_init(&ecdh_state.ctx.rng, "ECDH", 5);
+}
+
+void generate_pub_priv_keys(void) {
+  /* first generating a random private key */
+  get_random_bytes(ecdh_state.keys.privkey_buffer,
+                   CMOX_ECC_CURVE25519_PRIVKEY_LEN, &ecdh_state.ctx.rng);
+  /* clamping the private key
+   * (https://martin.kleppmann.com/papers/curve25519.pdf, section 4.7) */
+  ecdh_state.keys.privkey_buffer[0] &= 0xf8;
+  ecdh_state.keys.privkey_buffer[31] &= 0x7f;
+  ecdh_state.keys.privkey_buffer[31] |= 0x40;
+  /* deriving public key from standard generator base point (0x9) */
+  const uint8_t curve25519_base_point[32] = {
+      0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  /* generating public key from base point and private key */
+  size_t pubkey_len = CMOX_ECC_CURVE25519_PUBKEY_LEN;
+  cmox_ecc_retval_t keygen_retval =
+      cmox_ecdh(&ecdh_state.ctx.handle, CMOX_ECC_CURVE25519,
+                ecdh_state.keys.privkey_buffer, CMOX_ECC_CURVE25519_PRIVKEY_LEN,
+                curve25519_base_point, sizeof(curve25519_base_point),
+                ecdh_state.keys.pubkey_buffer, &pubkey_len);
+  if (keygen_retval != CMOX_ECC_SUCCESS) {
+    FAIL(get_ecc_retval_string(keygen_retval));
+  }
+  if (pubkey_len != CMOX_ECC_CURVE25519_PUBKEY_LEN) {
+    FAIL("wrong public key length during ecdh key generation");
+  }
+}
+
+void compute_shared_secret(void) {
+  size_t shared_secret_length = CMOX_ECC_CURVE25519_PUBKEY_LEN;
+  cmox_ecc_retval_t ecdh_retval = cmox_ecdh(
+      &ecdh_state.ctx.handle, CMOX_ECC_CURVE25519,
+      ecdh_state.keys.privkey_buffer, CMOX_ECC_CURVE25519_PRIVKEY_LEN,
+      ecdh_state.session.peer_public_key, CMOX_ECC_CURVE25519_PUBKEY_LEN,
+      ecdh_state.session.shared_secret, &shared_secret_length);
+  if (ecdh_retval != CMOX_ECC_SUCCESS) {
+    FAIL(get_ecc_retval_string(ecdh_retval));
+  }
+}
+
+void compute_aes_key_from_shared_secret(void) {
+  uint8_t temp_digest_buffer[CMOX_SHA256_SIZE];
+  size_t digest_size;
+  cmox_hash_retval_t hash_retval =
+      cmox_hash_compute(CMOX_SHA256_ALGO, ecdh_state.session.shared_secret,
+                        CMOX_ECC_CURVE25519_PUBKEY_LEN,
+                        temp_digest_buffer, CMOX_SHA256_SIZE, &digest_size);
+  if (hash_retval != CMOX_HASH_SUCCESS) {
+    char *retval_message = get_hash_retval_string(hash_retval);
+    FAIL(retval_message);
+  }
+  // it is ok to keep the 128 leftmost bits of a sha256 output
+  // https://security.stackexchange.com/a/72685
+  UTIL_MEM_cpy_8(physec_key, temp_digest_buffer, AES_KEY_SIZE_IN_BYTES);
+}
+
 void SubghzApp_Init(void) {
   /* USER CODE BEGIN SubghzApp_Init_1 */
   /* Print APP version*/
@@ -285,9 +438,6 @@ void SubghzApp_Init(void) {
   LED_On(LED_RED2);
 
   // EEPROM save new config
-  /*  if (!has_config || memcmp(&conf, &physec_conf, sizeof(physec_config)) !=
-    0) { eeprom_write_physec_config(&physec_conf);
-    }*/
   if (config_done) {
     if (physec_config_write_eeprom(0, &physec_conf) == HAL_OK) {
       tm_plog(TS_OFF, VLEVEL_M,
@@ -297,11 +447,6 @@ void SubghzApp_Init(void) {
 
   /* Radio configuration */
 #if ((USE_MODEM_LORA == 1) && (USE_MODEM_FSK == 0))
-  // tm_plog(TS_OFF, VLEVEL_M, "---------------\n\r");
-  // tm_plog(TS_OFF, VLEVEL_M, "LORA_MODULATION\n\r");
-  // tm_plog(TS_OFF, VLEVEL_M, "LORA_BW=%d kHz\n\r", (1 << LORA_BANDWIDTH) *
-  // 125); tm_plog(TS_OFF, VLEVEL_M, "LORA_SF=%d\n\r", LORA_SPREADING_FACTOR);
-
   /* Enable Physical Layer Security features of SX1276 driver */
   Radio.SetPLS(true);
   // tm_plog(TS_OFF, VLEVEL_M, "PLS enabled\n\r");
@@ -399,7 +544,16 @@ void SubghzApp_Init(void) {
   UTIL_SEQ_RegTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process), UTIL_SEQ_RFU,
                    PHYsec_Platform_Process);
   cmox_init(); // init cmox STM32 module
-  fe_stl_init();
+  if (physec_conf.keygen.csi_type == CSI_ECDH || physec_conf.keygen.quant_type == QUANT_ECDH || physec_conf.keygen.recon_type == RECON_ECDH) {
+    if (physec_conf.keygen.csi_type != CSI_ECDH || physec_conf.keygen.quant_type != QUANT_ECDH || physec_conf.keygen.recon_type != RECON_ECDH) {
+      FAIL("ECDH-oriented pipeline steps are only compatible within each other.");
+    } else {
+      init_ecdh();
+    }
+  }
+  if (physec_conf.keygen.recon_type == RECON_FE_STL) {
+    fe_stl_init();
+  }
   reset_physec_states(true);
   if (physec_conf.keygen.is_master) {
     UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process),
@@ -1119,10 +1273,6 @@ keep_going:
             update_physec_state(PHYSEC_STATE_PROBING);
             Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
           }
-          // if (!QUANT_IS_BLOCKWISE(physec_conf.keygen.quant_type)) {
-          //   physec_key_num_bits = -1;
-          //   num_indexes = 0;
-          // }
           goto go_to_rx;
         }
         case KG_DONE: {
@@ -1201,44 +1351,11 @@ keep_going:
           Radio.Send((uint8_t *)packet_kg_done,
                      physec_packet_get_size(packet_kg_done));
           goto go_to_rx;
-          // physec_packet_t *packet = NULL;
-          // switch (physec_conf.keygen.recon_type) {
-          // case RECON_FE:
-          // case RECON_PCS:
-          // case RECON_ECC_SS:
-          // default:
-          //   packet =
-          //       build_recon_packet_default(physec_conf.keygen.keygen_id,
-          //       physec_key, AES_KEY_SIZE_IN_BYTES,
-          //                                  BufferTx, MAX_APP_BUFFER_SIZE);
-          //   break;
-          // }
-          //
-          // if (!packet) {
-          //   tm_plog(TS_ON, VLEVEL_M, "Error building RECON packet\n\r");
-          //   goto go_to_rx;
-          // }
-          //
-          // tm_send_key_info(KEY_TYPE_RECONCILIATION, physec_key,
-          //                  REQUIRED_NUM_BITS_PER_KEY);
-          // // TODO: privacy amplification
-          // // tm_send_key_info(KEY_TYPE_PRIVACY_AMPLIFICATION, physec_key,
-          // // REQUIRED_NUM_BITS_PER_KEY);
-          //
-          // physec_state = PHYSEC_STATE_KEY_READY;
-          // tm_plog(TS_ON, VLEVEL_L, "Key Ready !");
-          //
-          // Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
         }
 
         break;
       }
       case PHYSEC_PACKET_TYPE_RECONCILIATION: {
-        // if (!physec_conf.keygen.is_master) {
-        //   // slave send reconciliation packet, and
-        //   // master performs reconciliation
-        //   goto go_to_rx;
-        // }
         if (!physec_conf.keygen.is_master &&
             physec_state == PHYSEC_STATE_PRE_RECONCILIATION) {
           update_physec_state(PHYSEC_STATE_RECONCILIATION);
@@ -1251,13 +1368,6 @@ keep_going:
         bool success = false;
         switch (physec_conf.keygen.recon_type) {
         case RECON_FE_STL:
-          // bob is going to try reconciliating
-          // {
-          //   uint8_t tmp_key[AES_KEY_SIZE_IN_BYTES] = {
-          //       122, 96,  82, 21, 161, 219, 242, 212,
-          //       160, 239, 56, 73, 168, 209, 63,  65};
-          //   memcpy(physec_key, tmp_key, sizeof(tmp_key));
-          // }
           success = fe_stl_reproduce_received_locks(recon_pkt);
           break;
         case RECON_PCS:
@@ -1282,9 +1392,10 @@ keep_going:
           tm_plog(TS_ON, VLEVEL_L, " Recon Try Failed !\r\n");
         }
         physec_packet_t *pkt =
-          build_recon_result_packet(physec_conf.keygen.keygen_id, BufferTx,
-              MAX_APP_BUFFER_SIZE, success);
-        tm_plog(TS_ON, VLEVEL_M, " Sending recon result (%s)\r\n", success ? "success" : "failure");
+            build_recon_result_packet(physec_conf.keygen.keygen_id, BufferTx,
+                                      MAX_APP_BUFFER_SIZE, success);
+        tm_plog(TS_ON, VLEVEL_M, " Sending recon result (%s)\r\n",
+                success ? "success" : "failure");
         Radio.Send((uint8_t *)pkt, physec_packet_get_size(pkt));
         break;
       }
@@ -1323,8 +1434,6 @@ keep_going:
           if (memcmp(payload, SECRET_MSG, sizeof(SECRET_MSG)) == 0) {
             tm_plog(TS_ON, VLEVEL_L,
                     "Secret message successfully decrypted !\n\r");
-            // Radio.Send(BufferRx, RxBufferSize);
-
           } else {
             tm_plog(TS_ON, VLEVEL_L, "Decryption failed !\n\r");
           }
@@ -1407,7 +1516,6 @@ keep_going:
       break;
     }
     case PHYSEC_STATE_POST_KEYGEN_SEND: {
-      // if (physec_conf.keygen.is_master) {
       if (HAL_GetTick() - time_last_pp_send_all > POST_PROCESS_SEND_DELAY_MS) {
         // Send all indexes if no response (assuming slave did
         // not receive any chunks)
@@ -1445,8 +1553,6 @@ keep_going:
         tm_plog(TS_ON, VLEVEL_M, "< Probe Sent ! (cnt=%u)\n\r", probe_cnt);
         return;
 
-        // memcpy(BufferTx, PING, sizeof(PING) - 1);
-        // Radio.Send(BufferTx, PAYLOAD_LEN);
       } else if (quant_status == QUANT_STATUS_FAILURE) {
         // if quantization was requested but failed,
         // then send KeyGen Quant error packet
@@ -1479,18 +1585,6 @@ keep_going:
         Radio.Send(BufferTx,
                    physec_packet_get_size((physec_packet_t *)BufferTx));
       }
-      // if (physec_conf.keygen.is_master) {
-      //   // indicating Slave need to continue to reconciliation phase
-      //   // (assuming it was not received by slave)
-      //   tm_plog(TS_ON, VLEVEL_L, "Sending Post-Keygen end packet\n\r");
-      //   physec_packet_t *packet =
-      //       build_keygen_success_packet_lossy(physec_conf.keygen.keygen_id,
-      //       BufferTx, MAX_APP_BUFFER_SIZE);
-      //
-      //   // HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
-      //   Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-      // } else {
-      // }
       break;
     }
     case PHYSEC_STATE_KEY_READY: {
@@ -1506,7 +1600,6 @@ keep_going:
           physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
           MAX_APP_BUFFER_SIZE);
 
-      // HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
       Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
       break;
     }
@@ -1553,7 +1646,6 @@ void reset_physec_states(bool first_reset) {
   num_quantized_csi = 0;
   num_csi = 0;
   num_indexes = 0;
-  // num_excursions = 0;
   probe_cnt = 0;
   num_remote_indexes = 0;
   quant_status = QUANT_STATUS_WAITING;
@@ -1567,6 +1659,9 @@ void reset_physec_states(bool first_reset) {
 
   UTIL_MEM_set_8(&trigger_signals, 0, sizeof(trigger_signals));
   recon_num_try = 0;
+
+  UTIL_MEM_set_8(&ecdh_state.keys, 0, sizeof(ecdh_state.keys));
+  UTIL_MEM_set_8(&ecdh_state.session, 0, sizeof(ecdh_state.session));
 }
 
 /* USER CODE END PrFD */
