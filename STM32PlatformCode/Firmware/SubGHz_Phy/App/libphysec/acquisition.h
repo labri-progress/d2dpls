@@ -12,4 +12,4 @@ typedef enum __attribute__((__packed__)) {
   CSI_NUM_TYPE = 4
 } csi_type_t;
 
-extern int16_t normalize_csi(int16_t csi);
+int16_t normalize_csi(int16_t csi);

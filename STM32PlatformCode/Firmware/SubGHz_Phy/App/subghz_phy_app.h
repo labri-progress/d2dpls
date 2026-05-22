@@ -173,7 +173,7 @@ extern "C" {
 #define NUM_CSI_MORE_DEFAULT 10
 
 #define NUM_KEPT_AR_RSSI 10
-#define UART_CONFIG_TIME_WINDOW_MS 5000
+#define UART_CONFIG_TIME_WINDOW_MS 50  // TODO: reset to 5000
 
 #define MAX_UART_BUF_SIZE 128
 
@@ -246,6 +246,8 @@ void compute_shared_secret(void);
  * @brief Generates the AES key from the shared secret. The AES key being 128 bits, it's the shared secret passed through a one-way hash function, keeping only the first 128 bits */
 void compute_aes_key_from_shared_secret(void);
 
+void send_public_key(void);
+
 enum {
   QUANT_STATUS_WAITING,
   QUANT_STATUS_FAILURE,
@@ -266,7 +268,7 @@ typedef enum {
   // wait lossy points to be dropped
   // or excursion indexes to select
   PHYSEC_STATE_POST_KEYGEN_WAIT,
-  // reconciliation state (not used in this project)
+  // reconciliation state
   PHYSEC_STATE_PRE_RECONCILIATION,
   PHYSEC_STATE_RECONCILIATION,
   // Final State, symmetric encryption possible

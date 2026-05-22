@@ -116,19 +116,19 @@ physec_packet_validity_e physec_validate_packet(uint8_t *packet, size_t size);
 #define FE_STL_LOCK_SIZE (AES_KEY_SIZE_IN_BYTES * 3 + 4)
 #define RECON_PACKET_HEADER_SIZE (sizeof(uint32_t) + sizeof(recon_type_t))
 
-void fe_stl_init();
+void fe_stl_init(void);
 void prng_init(physec_prng_t *prng, char *name, uint32_t n);
 void get_random_bytes(uint8_t *buf, uint32_t buf_size, physec_prng_t *prng);
 void get_random_sampling_mask(uint8_t *mask_buf, uint32_t mask_size,
                               uint32_t hot_bits, physec_prng_t *prng);
 uint32_t popcnt(uint8_t *barr, uint32_t size);
-void cmox_init();
+void cmox_init(void);
 void prf(uint8_t *out_buf, uint32_t out_size, uint8_t *key_buf,
          uint32_t key_size, uint8_t *nonce, uint32_t nonce_size,
          physec_prng_t *prng);
 
-void fe_stl_init();
-void fe_stl_create_and_send_locks();
+void fe_stl_init(void);
+void fe_stl_create_and_send_locks(void);
 bool fe_stl_reproduce_received_locks(physec_recon_packet_t *pkt);
 
 extern uint8_t physec_key[KEY_CAPACITY_IN_BYTES];

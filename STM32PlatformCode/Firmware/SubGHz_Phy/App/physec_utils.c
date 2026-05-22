@@ -32,7 +32,7 @@ void get_random_bytes(uint8_t *buf, uint32_t buf_size, physec_prng_t *prng) {
       FAIL("failed to generate random number");
     }
     uint32_t n_bytes_to_do = MIN(remaining, 4);
-    memcpy(buf, &random_uint, n_bytes_to_do);
+    UTIL_MEM_cpy_8(buf, &random_uint, n_bytes_to_do);
     remaining -= n_bytes_to_do;
     buf += n_bytes_to_do;
   }
@@ -173,7 +173,7 @@ int pre_process_and_quantize(void) {
   }
 
   // avoid copying if not enough measures for blockwise quant
-  memcpy(tmp_csi, measures_start, num_rem_csi * sizeof(csi_t));
+  UTIL_MEM_cpy_8(tmp_csi, measures_start, num_rem_csi * sizeof(csi_t));
 
   measures_start = tmp_csi;
 
@@ -368,7 +368,7 @@ void add_quantized_bits_to_physec_key(uint8_t *key_chunk, size_t chunksize) {
 void update_physec_key(uint8_t *new_physec_key,
                        size_t size_new_physec_key_in_bits) {
   memset(physec_key, 0, KEY_CAPACITY_IN_BYTES); // Clear the old key
-  memcpy(physec_key, new_physec_key,
+  UTIL_MEM_cpy_8(physec_key, new_physec_key,
          size_new_physec_key_in_bits); // Copy in the new key
   physec_key_num_bits = size_new_physec_key_in_bits;
 }
@@ -399,7 +399,7 @@ void update_physec_key(uint8_t *new_physec_key,
     // Replace physec_key with the truncated key
 
     memset(physec_key, 0, KEY_CAPACITY_IN_BYTES);
-    memcpy(physec_key, out, KEEP_BYTES);
+    UTIL_MEM_cpy_8(physec_key, out, KEEP_BYTES);
 
 
     physec_key_size_in_bits = KEEP_BITS;
@@ -437,7 +437,7 @@ void truncate_physec_key(size_t physec_key_size_in_bits) {
 
   // physec_key truncated
   memset(physec_key, 0, KEY_CAPACITY_IN_BYTES); // Clear the old key
-  memcpy(physec_key, out, KEEP_BYTES);
+  UTIL_MEM_cpy_8(physec_key, out, KEEP_BYTES);
 }
 
 /*!
@@ -513,14 +513,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
       uart_bufsize = 0;
       switch (cfg_type) {
       case PHYSEC_CONFIG_KEYGEN:
-        memcpy(&(physec_conf.keygen), uart_buf, sizeof(physec_keygen_config));
+        UTIL_MEM_cpy_8(&(physec_conf.keygen), uart_buf, sizeof(physec_keygen_config));
         break;
       case PHYSEC_CONFIG_TELEMETRY:
-        memcpy(&(physec_conf.telemetry), uart_buf,
+        UTIL_MEM_cpy_8(&(physec_conf.telemetry), uart_buf,
                sizeof(physec_telemetry_config));
         break;
       case PHYSEC_CONFIG_RADIO:
-        memcpy(&(physec_conf.physical_layer), uart_buf,
+        UTIL_MEM_cpy_8(&(physec_conf.physical_layer), uart_buf,
                sizeof(physec_physical_layer_config));
         break;
       case PHYSEC_CONFIG_LOAD_CSIS:

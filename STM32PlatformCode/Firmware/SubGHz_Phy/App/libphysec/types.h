@@ -42,13 +42,13 @@ struct density {
   double *values;
 };
 
-extern struct density *alloc_density(uint16_t bin_nbr);
-extern void free_density(struct density *d);
+struct density *alloc_density(uint16_t bin_nbr);
+void free_density(struct density *d);
 
-extern void get_random_bytes(uint8_t *buf, uint32_t buf_size,
+void get_random_bytes(uint8_t *buf, uint32_t buf_size,
                              physec_prng_t *prng);
-extern void get_random_sampling_mask(uint8_t *mask_buf, uint32_t mask_size,
+void get_random_sampling_mask(uint8_t *mask_buf, uint32_t mask_size,
                                      uint32_t hot_bits, physec_prng_t *prng);
-extern void prf(uint8_t *out_buf, uint32_t out_size, uint8_t *key_buf,
+void prf(uint8_t *out_buf, uint32_t out_size, uint8_t *key_buf,
                 uint32_t key_size, uint8_t *nonce, uint32_t nonce_size,
                 physec_prng_t *prng);

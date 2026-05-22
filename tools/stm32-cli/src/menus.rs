@@ -66,7 +66,7 @@ pub const MENU_KG_CSI_IDX_PRSSI: usize = 0;
 pub const MENU_KG_CSI_IDX_REGRSSI: usize = 1;
 pub const MENU_KG_CSI_IDX_ARRSSI: usize = 2;
 
-pub const CSI_MENU_CHOICES: [(&str, csi_type_t); 3] = [
+pub const CSI_MENU_CHOICES: [(&str, csi_type_t); 4] = [
     (
         prepare_option_text!("Packet RSSI", CSI_PACKET_RSSI),
         CSI_PACKET_RSSI,
@@ -79,6 +79,7 @@ pub const CSI_MENU_CHOICES: [(&str, csi_type_t); 3] = [
         prepare_option_text!("Adjacent Register RSSI", CSI_ADJACENT_REGISTER_RSSI),
         CSI_ADJACENT_REGISTER_RSSI,
     ),
+    (prepare_option_text!("ECDH", CSI_ECDH), CSI_ECDH),
 ];
 
 pub const MENU_KG_PREPROCESS_IDX_SAVGOLAY: usize = 0;
@@ -104,7 +105,7 @@ pub const PREPROCESS_MENU_CHOICES: [(&str, preprocess_type_t); 4] = [
     ),
 ];
 
-pub const QUANT_MENU_CHOICES: [(&str, quant_type_t); 9] = [
+pub const QUANT_MENU_CHOICES: [(&str, quant_type_t); 10] = [
     (
         prepare_option_text!(
             "Multi-Bit Range-based level-crossing (FLoRa)",
@@ -156,13 +157,14 @@ pub const QUANT_MENU_CHOICES: [(&str, quant_type_t); 9] = [
         ),
         QUANT_SB_LOSSY_BLOCKWISE,
     ),
+    (prepare_option_text!("ECDH", QUANT_ECDH), QUANT_ECDH),
 ];
 
 pub const MENU_KG_RECON_IDX_FE: usize = 0;
 pub const MENU_KG_RECON_IDX_PCS: usize = 1;
 pub const MENU_KG_RECON_IDX_ECC_SS: usize = 2;
 
-pub const RECON_MENU_CHOICES: [(&str, recon_type_t); 3] = [
+pub const RECON_MENU_CHOICES: [(&str, recon_type_t); 4] = [
     (
         prepare_option_text!("Fuzzy Extractors", RECON_FE_STL),
         RECON_FE_STL,
@@ -175,6 +177,7 @@ pub const RECON_MENU_CHOICES: [(&str, recon_type_t); 3] = [
         prepare_option_text!("ECC with Secure-Sketch", RECON_ECC_SS),
         RECON_ECC_SS,
     ),
+    (prepare_option_text!("ECDH", RECON_ECDH), RECON_ECDH),
 ];
 
 pub const RADIO_MENU_CHOICES: [&str; 1] = ["LoRa"];
@@ -213,7 +216,7 @@ pub(crate) fn choose_csi() -> libphysec::csi_type_t {
         .interact()
         .unwrap();
 
-        CSI_MENU_CHOICES[choice].1
+    CSI_MENU_CHOICES[choice].1
 }
 
 pub(crate) fn choose_pre_process() -> libphysec::preprocess_type_t {

@@ -118,9 +118,9 @@ typedef struct __attribute__((__packed__)) {
   physec_physical_layer_config physical_layer;
 } physec_config;
 
-extern size_t physec_config_get_size(physec_config_packet_t *packet);
-extern bool check_quant_method(uint8_t qtype);
-extern HAL_StatusTypeDef physec_config_write_eeprom(uint8_t offset_address,
+size_t physec_config_get_size(physec_config_packet_t *packet);
+bool check_quant_method(uint8_t qtype);
+HAL_StatusTypeDef physec_config_write_eeprom(uint8_t offset_address,
                                                     physec_config *config);
-extern bool physec_config_read_eeprom(uint8_t offset_address,
+bool physec_config_read_eeprom(uint8_t offset_address,
                                       physec_config *config);

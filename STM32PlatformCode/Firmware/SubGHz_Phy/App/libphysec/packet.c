@@ -1,5 +1,6 @@
 #include "packet.h"
 #include "reconciliation/reconciliation.h"
+#include "stm32_mem.h"
 #include <stdint.h>
 #include <string.h>
 size_t physec_packet_get_size(physec_packet_t *packet) {
@@ -30,6 +31,9 @@ size_t physec_packet_get_size(physec_packet_t *packet) {
     } else if (payload->kg_type == PHYSEC_KEYGEN_TYPE_ERROR ||
                payload->kg_type == PHYSEC_KEYGEN_TYPE_DONE) {
       payload_size = sizeof(physec_keygen_packet_t);
+    } else if (payload->kg_type == PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY) {
+      physec_keygen_ecdh_packet_t *ecdh_packet = (physec_keygen_ecdh_packet_t*)payload->data;
+      payload_size += ecdh_packet->key_size * sizeof(uint8_t) + sizeof(physec_keygen_ecdh_packet_t) + sizeof(physec_keygen_packet_t);
     }
     break;
   }
@@ -95,7 +99,7 @@ physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_PROBE;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_probe_packet_t *probe = (physec_probe_packet_t *)&(packet->data);
   probe->cnt = cnt;
 
@@ -106,6 +110,19 @@ physec_packet_t *build_probe_packet(uint8_t keygen_id, uint32_t cnt,
   return packet;
 }
 
+physec_packet_t *build_keygen_ecdh_packet(uint8_t keygen_id, uint8_t *pubkey_buf, size_t pubkey_buf_size, uint8_t *buf, size_t size) {
+  // TODO: add guards
+  physec_packet_t *packet = (physec_packet_t*) buf;
+  packet->id = keygen_id;
+  packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
+
+  physec_keygen_packet_t *keygen_packet = (physec_keygen_packet_t*)packet->data;
+  keygen_packet->kg_type = PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY;
+  physec_keygen_ecdh_packet_t *ecdh_packet = (physec_keygen_ecdh_packet_t*)keygen_packet->data;
+  ecdh_packet->key_size = pubkey_buf_size;
+  UTIL_MEM_cpy_8(ecdh_packet->key, pubkey_buf, pubkey_buf_size);
+  return packet;
+}
 physec_packet_t *build_keygen_data_packet(uint8_t keygen_id, uint8_t chunk_id,
                                           quant_index_t *indexes_chunk,
                                           size_t num_indexes_chunk,
@@ -122,7 +139,7 @@ physec_packet_t *build_keygen_data_packet(uint8_t keygen_id, uint8_t chunk_id,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_keygen_packet_t *keygen = (physec_keygen_packet_t *)&(packet->data);
   keygen->kg_type = PHYSEC_KEYGEN_TYPE_DATA;
   physec_keygen_data_t *data = (physec_keygen_data_t *)&(keygen->data);
@@ -147,7 +164,7 @@ physec_packet_t *build_keygen_success_packet_lossy(uint8_t keygen_id,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_keygen_packet_t *keygen = (physec_keygen_packet_t *)&(packet->data);
   keygen->kg_type = PHYSEC_KEYGEN_TYPE_RETRANSMISSION_REQ;
   physec_keygen_retransmission_req_t *req =
@@ -166,7 +183,7 @@ physec_packet_t *build_keygen_success_packet_lossless(uint8_t keygen_id,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_keygen_packet_t *keygen = (physec_keygen_packet_t *)&(packet->data);
   keygen->kg_type = PHYSEC_KEYGEN_TYPE_DATA;
   physec_keygen_data_t *data = (physec_keygen_data_t *)&(keygen->data);
@@ -184,7 +201,7 @@ physec_packet_t *build_keygen_slave_done(uint8_t keygen_id, uint8_t *buf,
     return NULL;
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_keygen_packet_t *keygen = (physec_keygen_packet_t *)&(packet->data);
   keygen->kg_type = PHYSEC_KEYGEN_TYPE_DONE;
   return packet;
@@ -200,7 +217,7 @@ build_keygen_retransmission_req_packet(uint8_t keygen_id,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_keygen_packet_t *keygen = (physec_keygen_packet_t *)&(packet->data);
   keygen->kg_type = PHYSEC_KEYGEN_TYPE_RETRANSMISSION_REQ;
   physec_keygen_retransmission_req_t *req =
@@ -217,7 +234,7 @@ physec_packet_t *build_keygen_error_packet(uint8_t keygen_id, uint8_t *buf,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_KEYGEN;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_keygen_packet_t *keygen = (physec_keygen_packet_t *)&(packet->data);
   keygen->kg_type = PHYSEC_KEYGEN_TYPE_ERROR;
 
@@ -235,7 +252,7 @@ physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_RECONCILIATION;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_recon_packet_t *recon = (physec_recon_packet_t *)&(packet->data);
   recon->rec_vec_size = PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE;
   memcpy(recon->data.key, key, PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE);
@@ -253,7 +270,7 @@ physec_packet_t *build_recon_fe_stl_packet(uint8_t keygen_id,
     return NULL;
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_RECONCILIATION;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_recon_packet_t *recon = (physec_recon_packet_t *)&(packet->data);
   recon->recon_type = RECON_FE_STL;
   recon->rec_vec_size = num_helpers * (key_size * 3 + sec_param);
@@ -275,7 +292,7 @@ physec_packet_t *build_recon_result_packet(uint8_t keygen_id, uint8_t *buf,
     return NULL;
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_RECONCILIATION_RESULT;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_recon_result_packet_t *result =
       (physec_recon_result_packet_t *)&(packet->data);
   result->success = success;
@@ -291,7 +308,7 @@ physec_packet_t *build_encrypted_packet(uint8_t keygen_id,
     return NULL;
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_ENCRYPTED;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_encrypted_packet_t *enc = (physec_encrypted_packet_t *)&(packet->data);
   enc->size = encrypted_payload_size;
   memcpy(enc->payload, encrypted_payload, encrypted_payload_size);
@@ -306,7 +323,7 @@ physec_packet_t *build_reset_packet(uint8_t keygen_id, uint8_t *buf,
 
   physec_packet_t *packet = (physec_packet_t *)buf;
   packet->type = PHYSEC_PACKET_TYPE_RESET;
-  packet->keygen_id = keygen_id;
+  packet->id = keygen_id;
   physec_reset_packet_t *reset_packet =
       (physec_reset_packet_t *)&(packet->data);
   reset_packet->ack = ack;

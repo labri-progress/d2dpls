@@ -73,11 +73,11 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi,
   /* Update the State of the FSM*/
   State = RX;
   /* Clear BufferRx*/
-  memset(BufferRx, 0, MAX_APP_BUFFER_SIZE);
+  UTIL_MEM_set_8(BufferRx, 0, MAX_APP_BUFFER_SIZE);
   /* Record payload size*/
   RxBufferSize = size;
   if (RxBufferSize <= MAX_APP_BUFFER_SIZE) {
-    memcpy(BufferRx, payload, RxBufferSize);
+    UTIL_MEM_cpy_8(BufferRx, payload, RxBufferSize);
   }
 
   /* Record Received Signal Strength*/
@@ -301,7 +301,7 @@ void fe_stl_create_and_send_locks() {
       physec_conf.keygen.keygen_id, &helpers, BufferTx, MAX_APP_BUFFER_SIZE,
       AES_KEY_SIZE_IN_BYTES, FE_STL_SEC, FE_STL_NUM_LOCKS_PER_TRY);
   recon_num_try += FE_STL_NUM_LOCKS_PER_TRY;
-  memcpy(recon_key, r_buf, AES_KEY_SIZE_IN_BYTES);
+  UTIL_MEM_cpy_8(recon_key, r_buf, AES_KEY_SIZE_IN_BYTES);
 
   Radio.Send((uint8_t *)pkt, physec_packet_get_size(pkt));
 }
@@ -324,14 +324,14 @@ bool fe_stl_reproduce_received_locks(physec_recon_packet_t *pkt) {
     nonces_ptrs[i] = nonces[i];
     masks_ptrs[i] = masks[i];
 
-    memcpy(ciphers_ptrs[i], pkt->data.helpers + offset,
+    UTIL_MEM_cpy_8(ciphers_ptrs[i], pkt->data.helpers + offset,
            AES_KEY_SIZE_IN_BYTES + FE_STL_SEC);
 
-    memcpy(nonces_ptrs[i],
+    UTIL_MEM_cpy_8(nonces_ptrs[i],
            pkt->data.helpers + offset + (AES_KEY_SIZE_IN_BYTES + FE_STL_SEC),
            AES_KEY_SIZE_IN_BYTES);
 
-    memcpy(masks_ptrs[i],
+    UTIL_MEM_cpy_8(masks_ptrs[i],
            pkt->data.helpers + offset + (AES_KEY_SIZE_IN_BYTES + FE_STL_SEC) +
                AES_KEY_SIZE_IN_BYTES,
            AES_KEY_SIZE_IN_BYTES);
@@ -348,7 +348,7 @@ bool fe_stl_reproduce_received_locks(physec_recon_packet_t *pkt) {
     if (fe_rep(physec_key, AES_KEY_SIZE_IN_BYTES, FE_STL_NUM_LOCKS_PER_TRY,
                FE_STL_SEC, r_buf, AES_KEY_SIZE_IN_BYTES, AES_KEY_SIZE_IN_BYTES,
                w_i_buf, &helpers, temp_buf, &l_prng)) {
-      memcpy(recon_key, r_buf, AES_KEY_SIZE_IN_BYTES);
+      UTIL_MEM_cpy_8(recon_key, r_buf, AES_KEY_SIZE_IN_BYTES);
       return true;
     }
   }

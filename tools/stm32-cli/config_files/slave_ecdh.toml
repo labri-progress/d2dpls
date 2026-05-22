@@ -1,0 +1,28 @@
+title = "PHYsec Key Generation configuration file"
+
+[metadata]
+title = "ECDH implementation (for reference)"
+title_alias = "ECDH"
+
+[keygen]
+is_master = false
+keygen_id = 0
+csi_type = 132
+pre_process_type = 0
+quant_type = 21
+recon_type = 3
+probe_padding = 10
+probe_delay = 250
+
+[telemetry]
+enabled = true
+logging_enabled = true
+keygen_info_enabled = false
+
+[radio]
+modulation = "LoRa"
+
+[radio.radio_config] 
+spreading_factor = 7
+bandwidth = 125
+tx_power = 7

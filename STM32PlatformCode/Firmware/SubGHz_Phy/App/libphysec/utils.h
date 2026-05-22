@@ -63,40 +63,40 @@
   }
 
 /** Array **/
-extern void csi_t_remove_at(csi_t *arr, size_t *num_elements, size_t index);
-extern void quant_index_t_remove_at(quant_index_t *arr, size_t *num_elements,
+void csi_t_remove_at(csi_t *arr, size_t *num_elements, size_t index);
+void quant_index_t_remove_at(quant_index_t *arr, size_t *num_elements,
                                     size_t index);
 
 /** Proba **/
-extern struct density *compute_pdf(csi_t *csis, size_t num_csi);
+struct density *compute_pdf(csi_t *csis, size_t num_csi);
 
-extern struct density *compute_cdf(struct density *pdf);
+struct density *compute_cdf(struct density *pdf);
 
 /** sorting **/
 
-extern void quant_index_t_sort(quant_index_t *arr, size_t num_elements);
-extern void csi_t_sort(csi_t *arr, size_t num_elements);
-extern void csi_t_quick_sort(csi_t *arr, size_t num_elements);
-extern bool csi_t_is_sorted(csi_t *arr, size_t num_elements);
-extern bool quant_index_t_is_sorted(quant_index_t *arr, size_t num_elements);
+void quant_index_t_sort(quant_index_t *arr, size_t num_elements);
+void csi_t_sort(csi_t *arr, size_t num_elements);
+void csi_t_quick_sort(csi_t *arr, size_t num_elements);
+bool csi_t_is_sorted(csi_t *arr, size_t num_elements);
+bool quant_index_t_is_sorted(quant_index_t *arr, size_t num_elements);
 
 /** Pycom ported code **/
-extern struct density PHYSEC_quntification_get_density(csi_t *rssi_window);
+struct density PHYSEC_quntification_get_density(csi_t *rssi_window);
 
-extern void PHYSEC_quntification_free_density(struct density *d);
+void PHYSEC_quntification_free_density(struct density *d);
 
-extern int8_t PHYSEC_quntification_inverse_cdf(double cdf, struct density *d);
+int8_t PHYSEC_quntification_inverse_cdf(double cdf, struct density *d);
 
 // <--- Density function estimation
 
-extern int8_t PHYSEC_quntification_compute_level_nbr(struct density *d);
+int8_t PHYSEC_quntification_compute_level_nbr(struct density *d);
 
 /*
     return value:
         level index strating from 1.
         0 : in case of error
 */
-extern unsigned char
+unsigned char
 PHYSEC_quntification_get_level(csi_t rssi, csi_t *threshold_starts,
                                csi_t *threshold_ends,
                                csi_t qunatification_level_nbr);
