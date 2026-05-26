@@ -729,7 +729,7 @@ static int post_process_handle_rx_indexes(physec_keygen_data_t *indexes_pkt,
 static int handle_keygen(physec_keygen_packet_t *kg_pkt, bool master) {
   if (ecdh_state.enabled) {
     if (kg_pkt->kg_type == PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY) {
-      update_physec_state(PHYSEC_STATE_KEYGEN);
+      //update_physec_state(PHYSEC_STATE_KEYGEN);
       physec_keygen_ecdh_packet_t *ecdh_payload =
           (physec_keygen_ecdh_packet_t *)kg_pkt->data;
       UTIL_MEM_cpy_8(ecdh_state.session.peer_public_key, ecdh_payload->key,
@@ -1613,6 +1613,7 @@ keep_going:
         if (physec_conf.keygen.is_master) {
           send_public_key();
         }
+        update_physec_state(PHYSEC_STATE_KEYGEN);
       } else if (physec_conf.keygen.is_master == true) {
         /* Send the next PING frame */
         /* Add delay between RX and TX*/
@@ -1635,7 +1636,11 @@ keep_going:
       break;
     }
     case PHYSEC_STATE_KEYGEN: {
-      if (physec_conf.keygen.is_master) {
+      if (ecdh_state.enabled) {
+        /* retransmitting the generated key */
+        Radio.Send(BufferTx,
+                   physec_packet_get_size((physec_packet_t *)BufferTx));
+      } else if (physec_conf.keygen.is_master) {
         // Send KeyGen start packet for lossless quant
         // (assuming it was not received by slave)
         physec_packet_t *packet = build_keygen_success_packet_lossless(
