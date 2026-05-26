@@ -255,7 +255,7 @@ physec_packet_t *build_recon_packet_default(uint8_t keygen_id, uint8_t *key,
   packet->id = keygen_id;
   physec_recon_packet_t *recon = (physec_recon_packet_t *)&(packet->data);
   recon->rec_vec_size = PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE;
-  memcpy(recon->data.key, key, PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE);
+  memcpy(recon->data, key, PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE);
 
   return packet;
 }
@@ -276,11 +276,11 @@ physec_packet_t *build_recon_fe_stl_packet(uint8_t keygen_id,
   recon->rec_vec_size = num_helpers * (key_size * 3 + sec_param);
   for (uint32_t i = 0; i < num_helpers; i++) {
     uint32_t offset = (key_size * 3 + sec_param) * i;
-    memcpy(&recon->data.helpers[offset], helpers->ciphers[i],
+    memcpy(&recon->data[offset], helpers->ciphers[i],
            key_size + sec_param);
-    memcpy(&recon->data.helpers[offset + key_size + sec_param],
+    memcpy(&recon->data[offset + key_size + sec_param],
            helpers->nonces[i], key_size);
-    memcpy(&recon->data.helpers[offset + key_size + sec_param + key_size],
+    memcpy(&recon->data[offset + key_size + sec_param + key_size],
            helpers->masks[i], key_size);
   }
   return packet;

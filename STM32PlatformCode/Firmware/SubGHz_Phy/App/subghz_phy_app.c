@@ -1442,7 +1442,7 @@ keep_going:
         default:
           // default case without reconciliation for now
           success = true;
-          UTIL_MEM_cpy_8(recon_key, recon_pkt->data.key, AES_KEY_SIZE_IN_BYTES);
+          UTIL_MEM_cpy_8(recon_key, recon_pkt->data, AES_KEY_SIZE_IN_BYTES);
           break;
         }
         // TODO: Add privacy amplification using ST primitives

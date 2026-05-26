@@ -171,10 +171,7 @@ typedef struct __attribute__((__packed__)) {
 typedef struct __attribute__((__packed__)) {
   uint32_t rec_vec_size;
   recon_type_t recon_type;
-  union {
-    uint8_t key[PHYSEC_PACKET_RECON_DEFAULT_KEY_SIZE];
-    uint8_t helpers[PHYSEC_PACKET_RECON_FE_STL_VEC_SIZE];
-  } data;
+  uint8_t data[];
   // add a MIC to check with reconciliated key
 } physec_recon_packet_t;
 

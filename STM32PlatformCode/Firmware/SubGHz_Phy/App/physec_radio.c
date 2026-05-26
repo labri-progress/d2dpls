@@ -255,14 +255,14 @@ size_t num_reg_rssis = 0;
 size_t last_added_num_reg_rssis = 0;
 RadioEvents_t RadioEvents;
 
-void fe_stl_init() {
+void fe_stl_init(void) {
   prng_init(&r_prng, "rrng", 5);
   prng_init(&l_prng, "lrng", 5);
   prng_init(&m_prng, "mrng", 5);
   set_log(&logger);
 }
 
-void fe_stl_create_and_send_locks() {
+void fe_stl_create_and_send_locks(void) {
   tm_plog(TS_ON, VLEVEL_L, "starting locks creating\r\n");
   uint32_t num_possible_locks =
       (MAX_APP_BUFFER_SIZE - RECON_PACKET_HEADER_SIZE) / FE_STL_LOCK_SIZE;
@@ -324,15 +324,15 @@ bool fe_stl_reproduce_received_locks(physec_recon_packet_t *pkt) {
     nonces_ptrs[i] = nonces[i];
     masks_ptrs[i] = masks[i];
 
-    UTIL_MEM_cpy_8(ciphers_ptrs[i], pkt->data.helpers + offset,
+    UTIL_MEM_cpy_8(ciphers_ptrs[i], pkt->data + offset,
            AES_KEY_SIZE_IN_BYTES + FE_STL_SEC);
 
     UTIL_MEM_cpy_8(nonces_ptrs[i],
-           pkt->data.helpers + offset + (AES_KEY_SIZE_IN_BYTES + FE_STL_SEC),
+           pkt->data + offset + (AES_KEY_SIZE_IN_BYTES + FE_STL_SEC),
            AES_KEY_SIZE_IN_BYTES);
 
     UTIL_MEM_cpy_8(masks_ptrs[i],
-           pkt->data.helpers + offset + (AES_KEY_SIZE_IN_BYTES + FE_STL_SEC) +
+           pkt->data + offset + (AES_KEY_SIZE_IN_BYTES + FE_STL_SEC) +
                AES_KEY_SIZE_IN_BYTES,
            AES_KEY_SIZE_IN_BYTES);
   }
