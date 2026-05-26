@@ -22,3 +22,5 @@ compile_commands.json
 
 tools/log-analyze/**/*.a
 !.github
+.zed
+*.bin
