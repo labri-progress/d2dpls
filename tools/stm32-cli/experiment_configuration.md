@@ -24,6 +24,7 @@ Method used for acquisition.
 - `CSI_REGISTER_RSSI`: 129 (Not Implemented Yet)
 - `CSI_ADJACENT_REGISTER_RSSI`: 130 (Not Implemented Yet)
 - `CSI_CLSSI`: 131 (Not Implemented Yet)
+- `CSI_ECDH`: 132 (Not Implemented Yet)
 - `CSI_NUM_TYPE`: 4
 
 ### Supported pre-processing:
@@ -54,6 +55,7 @@ Supported quantization methods, ie. the method used to generate bits from the CS
 - `QUANT_SB_LOSSLESS_BLOCKWISE`: 26
 - `QUANT_SB_LOSSY`: 29
 - `QUANT_SB_LOSSY_BLOCKWISE`: 31
+- `QUANT_ECDH`: 21
 
 ### Supported information-reconciliation methods:
 
@@ -62,7 +64,8 @@ Supported quantization methods, ie. the method used to generate bits from the CS
 - `RECON_ECC_SS`: 128 (Not Implemented Yet)
 - `RECON_FE_STL`: 1
 - `RECON_PCS`: 130 (Not Implemented Yet)
-- `RECON_NUM_TYPE`: 131 (Not Implemented Yet)
+- `RECON_ECDH`: 3
+- `RECON_NUM_TYPE`: 4
 
 ### Probe Padding
 
