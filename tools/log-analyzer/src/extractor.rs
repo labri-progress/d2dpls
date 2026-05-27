@@ -137,16 +137,25 @@ impl Extractor {
         ).map_err(|e| ExtractorError::RegexError(format!("Failed to compile keygen_conf regex: {e}")))?;
 
         let start_keygen_regex = Regex::new(&format!(
-            r"(?m)^{} {} (?:(?:[<|>] Probe Sent ! \(cnt=0\)\n{} {} < received)|(?:> Keygen Done ! \(\d+ bits\)))",
+            r"(?m)^{} {} \[First Probe\]$",
             Self::HOST_TIMESTAMP_REGEX,
             Self::DEVICE_TIMESTAMP_REGEX,
-            Self::HOST_TIMESTAMP_REGEX,
-            Self::DEVICE_TIMESTAMP_REGEX,
-
         ))
         .map_err(|e| {
             ExtractorError::RegexError(format!("Failed to compile keygen_conf regex: {e}"))
         })?;
+
+        // let start_keygen_regex = Regex::new(&format!(
+        //     r"(?m)^{} {} (?:(?:[<|>] Probe Sent ! \(cnt=0\)\n{} {} < received)|(?:> Keygen Done ! \(\d+ bits\)))",
+        //     Self::HOST_TIMESTAMP_REGEX,
+        //     Self::DEVICE_TIMESTAMP_REGEX,
+        //     Self::HOST_TIMESTAMP_REGEX,
+        //     Self::DEVICE_TIMESTAMP_REGEX,
+        //
+        // ))
+        // .map_err(|e| {
+        //     ExtractorError::RegexError(format!("Failed to compile keygen_conf regex: {e}"))
+        // })?;
 
         let end_keygen_regex = Regex::new(&format!(
             r"(?m)^{} {} Performing Reset !$",
@@ -397,7 +406,7 @@ impl Extractor {
                 keygen_run_lines.push(data);
                 cur = new_cur;
             } else {
-                println!("todo: better handle this");
+                println!("todo: better handle this ({result:#?})");
             }
         }
         Ok(keygen_run_lines)
@@ -446,6 +455,7 @@ impl Extractor {
         full_log: &str,
     ) -> Result<(NaiveDateTime, NaiveDateTime, f32), ExtractorError> {
         let start_keygens = Self::extract_matches(&self.start_keygen_regex, full_log);
+        dbg!(full_log, &self.start_keygen_regex);
         let start_keygens = start_keygens.first().ok_or_else(|| {
             ExtractorError::ExperimentTimingsError(
                 "Couldn't find experimentations start".to_string(),

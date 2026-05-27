@@ -345,8 +345,7 @@ void generate_pub_priv_keys(void) {
   if (pubkey_len != CMOX_ECC_CURVE25519_PUBKEY_LEN) {
     FAIL("wrong public key length during ecdh key generation");
   }
-  tm_send_key_info(KEY_TYPE_ECDH_PUBLIC_PRIVATE_KEYS,
-                   ecdh_state.keys.pubkey_buffer,
+  tm_send_key_info(KEY_TYPE_QUANT, ecdh_state.keys.pubkey_buffer,
                    CMOX_ECC_CURVE25519_PUBKEY_LEN * 8);
 }
 
@@ -380,6 +379,8 @@ void compute_aes_key_from_shared_secret(void) {
   // https://security.stackexchange.com/a/72685
   UTIL_MEM_cpy_8(physec_key, temp_digest_buffer, AES_KEY_SIZE_IN_BYTES);
 }
+
+void start_exp(void) { State = TX_FIRST_PROBE; }
 
 void SubghzApp_Init(void) {
   /* USER CODE BEGIN SubghzApp_Init_1 */
@@ -568,10 +569,10 @@ void SubghzApp_Init(void) {
     fe_stl_init();
   }
   reset_physec_states(true);
+  start_exp();
   if (physec_conf.keygen.is_master || ecdh_state.enabled) {
     UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process),
                      CFG_SEQ_Prio_0);
-    State = TX_FIRST_PROBE;
   } else {
     /*starts reception*/
     Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
@@ -729,16 +730,16 @@ static int post_process_handle_rx_indexes(physec_keygen_data_t *indexes_pkt,
 static int handle_keygen(physec_keygen_packet_t *kg_pkt, bool master) {
   if (ecdh_state.enabled) {
     if (kg_pkt->kg_type == PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY) {
-      //update_physec_state(PHYSEC_STATE_KEYGEN);
+      // update_physec_state(PHYSEC_STATE_KEYGEN);
       physec_keygen_ecdh_packet_t *ecdh_payload =
           (physec_keygen_ecdh_packet_t *)kg_pkt->data;
       UTIL_MEM_cpy_8(ecdh_state.session.peer_public_key, ecdh_payload->key,
                      ecdh_payload->key_size);
-      tm_send_key_info(KEY_TYPE_ECDH_PEER_PUBLIC_KEY, ecdh_payload->key,
+      tm_send_key_info(KEY_TYPE_POST_PROCESSING, ecdh_payload->key,
                        ecdh_payload->key_size * 8);
       update_physec_state(PHYSEC_STATE_RECONCILIATION);
       compute_shared_secret();
-      tm_send_key_info(KEY_TYPE_ECDH_SHARED_SECRET,
+      tm_send_key_info(KEY_TYPE_RECONCILIATION,
                        ecdh_state.session.shared_secret,
                        CMOX_ECC_CURVE25519_PUBKEY_LEN * 8);
       compute_aes_key_from_shared_secret();
@@ -1158,7 +1159,6 @@ void PHYsec_Platform_Process(void) {
     physec_reset_packet_t *rst_pck;
     switch (State) {
     case RX:
-      tm_plog(TS_ON, VLEVEL_M, "RX");
       if (physec_validate_packet(BufferRx, RxBufferSize) ==
           PHYSEC_VALID_PACKET) {
         physec_packet_t *packet = (physec_packet_t *)BufferRx;
@@ -1177,11 +1177,10 @@ void PHYsec_Platform_Process(void) {
           /* vérifier sic c'est un keygen ECDH */
           physec_keygen_packet_t *keygen_pkt =
               (physec_keygen_packet_t *)packet->data;
-          if (keygen_pkt->kg_type != PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY)
+          if (keygen_pkt->kg_type != PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY) {
             break;
+          }
         case PHYSEC_PACKET_TYPE_PROBE:
-          // TODO: vérifier count à 1
-          tm_plog(TS_ON, VLEVEL_M, "Received PROBE");
           reset_handler(RECV_FIRST_PROBE);
           goto keep_going;
           break;
@@ -1614,7 +1613,7 @@ keep_going:
           send_public_key();
         }
         update_physec_state(PHYSEC_STATE_KEYGEN);
-      } else if (physec_conf.keygen.is_master == true) {
+      } else if (physec_conf.keygen.is_master) {
         /* Send the next PING frame */
         /* Add delay between RX and TX*/
         /* add random_delay to force sync between boards after some trials*/
@@ -1741,14 +1740,6 @@ void reset_physec_states(bool first_reset) {
   if (ecdh_state.enabled) {
     UTIL_MEM_set_8(&ecdh_state.keys, 0, sizeof(ecdh_state.keys));
     UTIL_MEM_set_8(&ecdh_state.session, 0, sizeof(ecdh_state.session));
-    State = TX_FIRST_PROBE;
-  } else if (physec_conf.keygen.is_master) {
-    State = TX_FIRST_PROBE;
-  }
-  if (ecdh_state.enabled && !physec_conf.keygen.is_master) {
-    /* if slave, compute pubkey here as he will not reenter with TX_FIRST_PROBE
-     */
-    generate_pub_priv_keys();
   }
 }
 

@@ -220,6 +220,7 @@ void reset_handler(int requested_transition) {
       send_rst_ack();
     } else if (requested_transition == RECV_FIRST_PROBE) {
       reset_state = NOT_RSTING;
+      start_exp();
     }
     break;
   case WAIT_ACK:
@@ -227,6 +228,7 @@ void reset_handler(int requested_transition) {
       send_rst();
     } else if (requested_transition == RECV_RST_ACK) {
       reset_state = NOT_RSTING;
+      start_exp();
     }
     break;
   default:

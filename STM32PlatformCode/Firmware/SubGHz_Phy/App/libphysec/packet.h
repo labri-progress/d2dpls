@@ -77,7 +77,7 @@ typedef enum {
  *	Packet header
  */
 typedef struct __attribute__((__packed__)) {
-  uint32_t type;
+  physec_packet_type_t type;
   // uint64_t timestamp;
   uint8_t id;
   uint8_t data[];
