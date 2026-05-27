@@ -581,7 +581,7 @@ int quant_mbr_lossless(int16_t *measures, size_t n_measures, uint8_t *outkey,
 
   size_t n_levels = (1 << nbits_per_level);
   interval = (float)range / (float)n_levels;
-  tm_plog(TS_ON, VLEVEL_L, "> Interval = %f\n\r", interval);
+  //tm_plog(TS_ON, VLEVEL_L, "> Interval = %f\n\r", interval);
   num_quantized = 0;
   for (size_t i = 0; i < n_measures; i++) {
     for (size_t j = 0; j < n_levels; j++) {

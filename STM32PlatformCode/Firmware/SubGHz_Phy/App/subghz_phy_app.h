@@ -173,7 +173,7 @@ extern "C" {
 #define NUM_CSI_MORE_DEFAULT 10
 
 #define NUM_KEPT_AR_RSSI 10
-#define UART_CONFIG_TIME_WINDOW_MS 50  // TODO: reset to 5000
+#define UART_CONFIG_TIME_WINDOW_MS 5000  // TODO: reset to 5000
 
 #define MAX_UART_BUF_SIZE 128
 
