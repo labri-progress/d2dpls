@@ -54,12 +54,6 @@ enum __attribute__((__packed__)) {
   KEY_TYPE_RECONCILIATION,
   // Key after privacy amplification
   KEY_TYPE_PRIVACY_AMPLIFICATION,
-  // Public / Private key combo
-  KEY_TYPE_ECDH_PUBLIC_PRIVATE_KEYS,
-  // Peer public key after they sent it to us
-  KEY_TYPE_ECDH_PEER_PUBLIC_KEY,
-  // Derived shared secret
-  KEY_TYPE_ECDH_SHARED_SECRET,
   // Final AES key
   KEY_TYPE_NUM
 };
