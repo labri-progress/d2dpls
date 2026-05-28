@@ -455,7 +455,6 @@ impl Extractor {
         full_log: &str,
     ) -> Result<(NaiveDateTime, NaiveDateTime, f32), ExtractorError> {
         let start_keygens = Self::extract_matches(&self.start_keygen_regex, full_log);
-        dbg!(full_log, &self.start_keygen_regex);
         let start_keygens = start_keygens.first().ok_or_else(|| {
             ExtractorError::ExperimentTimingsError(
                 "Couldn't find experimentations start".to_string(),

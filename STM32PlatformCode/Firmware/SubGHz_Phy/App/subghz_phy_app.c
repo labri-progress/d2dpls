@@ -380,7 +380,7 @@ void compute_aes_key_from_shared_secret(void) {
   UTIL_MEM_cpy_8(physec_key, temp_digest_buffer, AES_KEY_SIZE_IN_BYTES);
 }
 
-void start_exp(void) { State = TX_FIRST_PROBE; }
+void start_exp(void) { State = FIRST_PROBE; }
 
 void SubghzApp_Init(void) {
   /* USER CODE BEGIN SubghzApp_Init_1 */
@@ -945,6 +945,8 @@ int handle_probe(physec_probe_packet_t *probe_resp, bool is_master) {
     } else if (probe_resp_cnt != probe_cnt) {
       tm_plog(TS_ON, VLEVEL_L, "Unrecoverable probe error");
       return 0;
+    } if (probe_cnt == 0) {
+      tm_plog(TS_ON, VLEVEL_L, "[First Probe]");
     }
   }
 
@@ -1077,6 +1079,10 @@ physec_packet_validity_e physec_validate_packet(uint8_t *packet, size_t size) {
       case RECON_NUM_TYPE:
         expected_size += sizeof(uint8_t) * (AES_KEY_SIZE_IN_BYTES);
         break;
+      default:
+        tm_plog(TS_ON, VLEVEL_M, "Unexpected recon packet in ECDH mode\n\r");
+        expected_size = 0;
+        break;
       }
       if (size < expected_size) {
         tm_plog(TS_ON, VLVEL_M, "unexpected recon packet size!");
@@ -1085,7 +1091,6 @@ physec_packet_validity_e physec_validate_packet(uint8_t *packet, size_t size) {
       if (size < recon_pkt->rec_vec_size) {
         return PHYSEC_INVALID_PACKET;
       }
-
       break;
     }
   case PHYSEC_PACKET_TYPE_ENCRYPTED:
@@ -1150,11 +1155,12 @@ void send_public_key(void) {
 }
 
 /************	Main program Loop ************/
-void PHYsec_Platform_Process(void) {
-  Radio.Sleep();
+typedef enum {
+  KeepGoing,
+  GoToRx,
+} PHYsec_Platform_Process_Handler_Result_t;
 
-  // let's keep this switch simple.
-  // once it will work, we will try to integrate it better
+PHYsec_Platform_Process_Handler_Result_t PHYsec_Platform_Process_Reset(void) {
   if (reset_state > 0) {
     physec_reset_packet_t *rst_pck;
     switch (State) {
@@ -1173,17 +1179,21 @@ void PHYsec_Platform_Process(void) {
             reset_handler(RECV_RST);
           }
           break;
-        case PHYSEC_PACKET_TYPE_KEYGEN:;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+        case PHYSEC_PACKET_TYPE_KEYGEN: {
           /* vérifier sic c'est un keygen ECDH */
           physec_keygen_packet_t *keygen_pkt =
               (physec_keygen_packet_t *)packet->data;
           if (keygen_pkt->kg_type != PHYSEC_KEYGEN_TYPE_ECDH_PUBKEY) {
             break;
           }
+        }
         case PHYSEC_PACKET_TYPE_PROBE:
           reset_handler(RECV_FIRST_PROBE);
-          goto keep_going;
+          return KeepGoing;
           break;
+#pragma GCC diagnostic pop
         default:
           tm_plog(TS_OFF, VLEVEL_M, "RECEIVED %d PKT MGK\r\n", packet->type);
           break;
@@ -1191,7 +1201,10 @@ void PHYsec_Platform_Process(void) {
       }
       break;
     case TX:
+    case FIRST_PROBE:
       break;
+    case UNRELATED_RX:
+      return GoToRx;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
     case RX_ERROR:
@@ -1202,472 +1215,294 @@ void PHYsec_Platform_Process(void) {
       break;
     }
 #pragma GCC diagnostic pop
-    Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
+    return GoToRx;
+  }
+  return KeepGoing;
+}
+
+void PHYsec_Platform_Process_Rx_Probe(physec_packet_t *rx_packet) {
+
+  physec_probe_packet_t *probe_resp =
+      (physec_probe_packet_t *)&(rx_packet->data);
+
+  tm_plog(TS_ON, VLEVEL_M,
+          "< Probe Received ! (Packet cnt=%u, Internal cnt=%u)\n\r",
+          probe_resp->cnt, probe_cnt);
+
+  if (!handle_probe(probe_resp, physec_conf.keygen.is_master)) {
+    tm_plog(TS_ON, VLEVEL_M, "Failed to handle probe");
     return;
   }
 
-  physec_packet_validity_e packet_validity;
-keep_going:
-  switch (State) {
-  case RX:
-    packet_validity = physec_validate_packet(BufferRx, RxBufferSize);
-    if (packet_validity == PHYSEC_VALID_PACKET) {
-      tm_plog(TS_ON, VLEVEL_H, "=== PHYsec packet received ===\n\r");
-      physec_packet_t *rx_packet = (physec_packet_t *)BufferRx;
-
-      switch (rx_packet->type) {
-      case PHYSEC_PACKET_TYPE_PROBE: {
-        physec_probe_packet_t *probe_resp =
-            (physec_probe_packet_t *)&(rx_packet->data);
-
-        tm_plog(TS_ON, VLEVEL_M,
-                "< Probe Received ! (Packet cnt=%u, Internal cnt=%u)\n\r",
-                probe_resp->cnt, probe_cnt);
-
-        if (!handle_probe(probe_resp, physec_conf.keygen.is_master)) {
-          tm_plog(TS_ON, VLEVEL_M, "Failed to handle probe");
-          goto go_to_rx;
-        }
-
-        if (quant_status == QUANT_STATUS_FAILURE)
-          quant_status = QUANT_STATUS_WAITING;
-        update_physec_state(PHYSEC_STATE_PROBING);
-        // Instead of using the type of the quant to do the verification we need
-        // to add a more general verifcation like if multi_bits_quant
-        if (physec_conf.keygen.is_master) {
-          probe_cnt++;
-          csi_t *rssi_measures = csi_measures;
-          if (num_csi_more > 0) {
-            num_csi_more--;
-          } else if ((physec_conf.keygen.quant_type == QUANT_MBR_LOSSLESS) &&
-                     measurements_sufficiency_check_mbr_lossless(rssi_measures,
-                                                                 num_csi)) {
-            if (do_keygen()) {
-              tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
-                      physec_key_num_bits);
-              tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
-              for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
-                if (i == AES_KEY_SIZE_IN_BYTES - 1) {
-                  tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
-                } else {
-                  tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
-                }
-              }
-
-              goto go_to_rx;
-            } else {
-              if (num_csi >= NUM_MAX_CSI) {
-                reset_handler(KG_RST_REQ);
-              }
-            }
-          } else if ((physec_conf.keygen.quant_type == QUANT_SB_LOSSLESS) &&
-                     (num_csi >= 128)) {
-            if (do_keygen()) {
-              tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
-                      physec_key_num_bits);
-              tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
-              for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
-                if (i == AES_KEY_SIZE_IN_BYTES - 1) {
-                  tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
-                } else {
-                  tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
-                }
-              }
-
-              goto go_to_rx;
-            } else {
-              if (num_csi >= NUM_MAX_CSI) {
-                reset_handler(KG_RST_REQ);
-              }
-            }
+  if (quant_status == QUANT_STATUS_FAILURE)
+    quant_status = QUANT_STATUS_WAITING;
+  update_physec_state(PHYSEC_STATE_PROBING);
+  // Instead of using the type of the quant to do the verification we need
+  // to add a more general verifcation like if multi_bits_quant
+  if (physec_conf.keygen.is_master) {
+    probe_cnt++;
+    csi_t *rssi_measures = csi_measures;
+    if (num_csi_more > 0) {
+      num_csi_more--;
+    } else if ((physec_conf.keygen.quant_type == QUANT_MBR_LOSSLESS) &&
+               measurements_sufficiency_check_mbr_lossless(rssi_measures,
+                                                           num_csi)) {
+      if (do_keygen()) {
+        tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
+                physec_key_num_bits);
+        tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
+        for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
+          if (i == AES_KEY_SIZE_IN_BYTES - 1) {
+            tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
           } else {
-            // if the number of the measurements is not sufficient we do
-            // nothing!
-            tm_plog(TS_ON, VLEVEL_H, ">> Need to do more probing! \n\r");
+            tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
           }
         }
-
-        send_probe(probe_cnt);
-        tm_plog(TS_ON, VLEVEL_M, "> Probe Sent ! (cnt=%u)\n\r", probe_cnt);
-
-        if (!physec_conf.keygen.is_master) {
-          probe_cnt++;
+        return;
+      } else {
+        if (num_csi >= NUM_MAX_CSI) {
+          reset_handler(KG_RST_REQ);
         }
-
-        break;
       }
-      case PHYSEC_PACKET_TYPE_KEYGEN: {
-        if (physec_state >= PHYSEC_STATE_RECONCILIATION) {
-          // ignore keygen packet if we are in reconciliation state
-          goto go_to_rx;
-        }
-
-        physec_keygen_packet_t *kg_pkt =
-            (physec_keygen_packet_t *)&(rx_packet->data);
-        tm_plog(TS_ON, VLEVEL_M, "> Keygen packet received\n\r");
-
-        if (ecdh_state.enabled && !physec_conf.keygen.is_master) {
-          send_public_key();
-        }
-        switch (handle_keygen(kg_pkt, physec_conf.keygen.is_master)) {
-        case KG_QUANT_ERROR: {
-          tm_plog(TS_ON, VLEVEL_M, "Quantization error\n\r");
-          // An error happens during slave quantization
-          if (physec_conf.keygen.is_master) {
-            // go back to probing
-            update_physec_state(PHYSEC_STATE_PROBING);
-            num_quant_try++;
-            num_csi_more = NUM_CSI_MORE_DEFAULT * num_quant_try;
-            send_probe(probe_cnt);
+    } else if ((physec_conf.keygen.quant_type == QUANT_SB_LOSSLESS) &&
+               (num_csi >= 128)) {
+      if (do_keygen()) {
+        tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
+                physec_key_num_bits);
+        tm_plog(TS_ON, VLEVEL_H, "[*] Alice's Key = [\n\r");
+        for (size_t i = 0; i < AES_KEY_SIZE_IN_BYTES; i++) {
+          if (i == AES_KEY_SIZE_IN_BYTES - 1) {
+            tm_plog(TS_OFF, VLEVEL_L, "%02x ]\n\r", physec_key[i]);
           } else {
-            // notify master to go back to probing
-            physec_packet_t *packet = build_keygen_error_packet(
-                physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-            update_physec_state(PHYSEC_STATE_PROBING);
-            Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-          }
-          goto go_to_rx;
-        }
-        case KG_DONE: {
-          // send keygen done packet
-          if (ecdh_state.enabled) {
-            update_physec_state(PHYSEC_STATE_KEY_READY);
-            if (physec_conf.keygen.is_master) {
-              uint8_t msg[sizeof(SECRET_MSG) + 1] = {0};
-              UTIL_MEM_cpy_8(msg, SECRET_MSG, sizeof(SECRET_MSG));
-              vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
-                                       AES_KEY_SIZE_IN_BYTES);
-              physec_packet_t *packet = build_encrypted_packet(
-                  physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG),
-                  BufferTx, MAX_APP_BUFFER_SIZE);
-              Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-            }
-            goto go_to_rx;
-          } else if (physec_conf.keygen.is_master) {
-            physec_packet_t *packet = build_keygen_success_packet_lossy(
-                physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-
-            Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-            update_physec_state(PHYSEC_STATE_PRE_RECONCILIATION);
-            num_quant_try = 0;
-          }
-          break;
-        }
-        case KG_PP_SEND_LOST: {
-          tm_plog(TS_ON, VLEVEL_M, "Send quant indexes (lost ones)\n\r");
-          physec_keygen_packet_t *kg_pkt =
-              (physec_keygen_packet_t *)&(rx_packet->data);
-          physec_keygen_retransmission_req_t *retransmission_req =
-              (physec_keygen_retransmission_req_t *)&(kg_pkt->data);
-          post_process_send_indexes(retransmission_req->lost_chunks_bitmap);
-          goto go_to_rx;
-        }
-        case KG_PP_SEND_ALL: {
-          if (!physec_conf.keygen.is_master) {
-            tm_plog(TS_ON, VLEVEL_M, "num key bits = %d, num indexes = %d\n\r",
-                    physec_key_num_bits, num_indexes);
-            do_post_processing();
-            tm_plog(TS_ON, VLEVEL_M, "num key bits = %d, num indexes = %d\n\r",
-                    physec_key_num_bits, num_indexes);
-          }
-          tm_plog(TS_ON, VLEVEL_M, "Send quant indexes (all)\n\r");
-          update_physec_state(PHYSEC_STATE_POST_KEYGEN_SEND);
-          post_process_send_indexes(ALL_ONES_MASK);
-          time_last_pp_send_all = HAL_GetTick();
-          goto go_to_rx;
-        }
-        case KG_PP_WAIT_MORE:
-          tm_plog(TS_ON, VLEVEL_M, "Wait for more quant indexes\n\r");
-          update_physec_state(PHYSEC_STATE_POST_KEYGEN_WAIT);
-          goto go_to_rx;
-          break;
-          // post processing have been handled, wait for more
-          // data packet
-        case KG_SLAVE_DONE:
-          // bob finished quantizing, we can start reconciliation
-          update_physec_state(PHYSEC_STATE_RECONCILIATION);
-          try_or_retry_recon();
-          goto go_to_rx;
-        default:
-          goto go_to_rx;
-        }
-
-        if (physec_conf.keygen.is_master) {
-          do_post_processing();
-          if (QUANT_IS_LOSSY(physec_conf.keygen.quant_type)) {
-            if (physec_key_num_bits < REQUIRED_NUM_BITS_PER_KEY) {
-              tm_plog(TS_ON, VLEVEL_L,
-                      "Not enough bits after Post Processing (%d bits). "
-                      "Resetting...\n\r",
-                      physec_key_num_bits);
-              reset_handler(KG_RST_REQ);
-              goto go_to_rx;
-            }
+            tm_plog(TS_OFF, VLEVEL_L, "%02x,\n\r", physec_key[i]);
           }
         }
-        tm_send_key_info(KEY_TYPE_POST_PROCESSING, physec_key,
-                         physec_key_num_bits);
-
-        if (!physec_conf.keygen.is_master) {
-          // here we are going to enter in reconciliation.
-          // compute reconciliation vector according to reconciliation type
-          physec_packet_t *packet_kg_done = build_keygen_slave_done(
-              physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-          update_physec_state(PHYSEC_STATE_PRE_RECONCILIATION);
-          Radio.Send((uint8_t *)packet_kg_done,
-                     physec_packet_get_size(packet_kg_done));
-          goto go_to_rx;
+        return;
+      } else {
+        if (num_csi >= NUM_MAX_CSI) {
+          reset_handler(KG_RST_REQ);
         }
-
-        break;
       }
-      case PHYSEC_PACKET_TYPE_RECONCILIATION: {
-        if (!physec_conf.keygen.is_master &&
-            physec_state == PHYSEC_STATE_PRE_RECONCILIATION) {
-          update_physec_state(PHYSEC_STATE_RECONCILIATION);
-        }
-
-        tm_plog(TS_ON, VLEVEL_M, "> Reconciliation packet received:\n\r");
-        physec_recon_packet_t *recon_pkt =
-            (physec_recon_packet_t *)&(rx_packet->data);
-
-        bool success = false;
-        switch (physec_conf.keygen.recon_type) {
-        case RECON_FE_STL:
-          success = fe_stl_reproduce_received_locks(recon_pkt);
-          break;
-        case RECON_PCS:
-        case RECON_ECC_SS:
-        default:
-          // default case without reconciliation for now
-          success = true;
-          UTIL_MEM_cpy_8(recon_key, recon_pkt->data, AES_KEY_SIZE_IN_BYTES);
-          break;
-        }
-        // TODO: Add privacy amplification using ST primitives
-        // tm_send_key_info(KEY_TYPE_PRIVACY_AMPLIFICATION, physec_key,
-        // REQUIRED_NUM_BITS_PER_KEY);
-
-        if (success) {
-          update_physec_state(PHYSEC_STATE_KEY_READY);
-          UTIL_MEM_cpy_8(physec_key, recon_key, AES_KEY_SIZE_IN_BYTES);
-          tm_plog(TS_ON, VLEVEL_L, "Keys successfully reconciliated !\n\r");
-          tm_send_key_info(KEY_TYPE_RECONCILIATION, physec_key,
-                           REQUIRED_NUM_BITS_PER_KEY);
-        } else {
-          tm_plog(TS_ON, VLEVEL_L, " Recon Try Failed !\r\n");
-        }
-        physec_packet_t *pkt =
-            build_recon_result_packet(physec_conf.keygen.keygen_id, BufferTx,
-                                      MAX_APP_BUFFER_SIZE, success);
-        tm_plog(TS_ON, VLEVEL_M, " Sending recon result (%s)\r\n",
-                success ? "success" : "failure");
-        Radio.Send((uint8_t *)pkt, physec_packet_get_size(pkt));
-        break;
-      }
-      case PHYSEC_PACKET_TYPE_RECONCILIATION_RESULT: {
-        physec_recon_result_packet_t *result =
-            (physec_recon_result_packet_t *)&(rx_packet->data);
-        if (result->success) {
-          update_physec_state(PHYSEC_STATE_KEY_READY);
-          UTIL_MEM_cpy_8(physec_key, recon_key, AES_KEY_SIZE_IN_BYTES);
-          tm_send_key_info(KEY_TYPE_RECONCILIATION, physec_key,
-                           REQUIRED_NUM_BITS_PER_KEY);
-
-        } else {
-          if (!try_or_retry_recon()) {
-            reset_handler(KG_RST_REQ);
-          }
-        }
-        goto go_to_rx;
-        break;
-      }
-      case PHYSEC_PACKET_TYPE_ENCRYPTED: {
-        tm_plog(TS_ON, VLEVEL_M, "> Encrypted packet received:\n\r");
-        if (physec_state == PHYSEC_STATE_KEY_READY) {
-          physec_encrypted_packet_t *enc_pkt =
-              (physec_encrypted_packet_t *)&(rx_packet->data);
-
-          uint8_t payload[sizeof(SECRET_MSG) + 1];
-          if (enc_pkt->size != sizeof(SECRET_MSG)) {
-            tm_plog(TS_ON, VLEVEL_M, "Invalid packet size !\n\r");
-            goto go_to_rx;
-          }
-          UTIL_MEM_cpy_8(payload, enc_pkt->payload, enc_pkt->size);
-          vigenere_encrypt_decrypt(payload, enc_pkt->size, physec_key,
-                                   AES_KEY_SIZE_IN_BYTES);
-          tm_plog(TS_ON, VLEVEL_L, "Decrypted message: %s\n\r", payload);
-          if (memcmp(payload, SECRET_MSG, sizeof(SECRET_MSG)) == 0) {
-            tm_plog(TS_ON, VLEVEL_L,
-                    "Secret message successfully decrypted !\n\r");
-          } else {
-            tm_plog(TS_ON, VLEVEL_L, "Decryption failed !\n\r");
-          }
-          if (physec_conf.keygen.is_master) {
-            reset_handler(USER_BTN);
-          } else {
-            uint8_t msg[sizeof(SECRET_MSG) + 1] = {0};
-            UTIL_MEM_cpy_8(msg, SECRET_MSG, sizeof(SECRET_MSG));
-            vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
-                                     AES_KEY_SIZE_IN_BYTES);
-            physec_packet_t *packet = build_encrypted_packet(
-                physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
-                MAX_APP_BUFFER_SIZE);
-            Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-          }
-        }
-        break;
-      }
-      case PHYSEC_PACKET_TYPE_RESET: {
-        tm_plog(TS_ON, VLEVEL_M, "< Reset Packet Received:\n\r");
-        physec_reset_packet_t *rst_pck =
-            (physec_reset_packet_t *)&rx_packet->data;
-
-        if (!rst_pck->ack)
-          reset_handler(RECV_RST);
-        else
-          random_delay = (Radio.Random()) >> 22;
-        break;
-      }
-      default:
-        break;
-      }
-    } else if (packet_validity == PHYSEC_UNRELATED_PACKET) {
-      tm_plog(TS_ON, VLEVEL_H, "< Unrelated PHYsec packet received.\n\r");
-      // reentry
-      State = UNRELATED_RX;
-      // random small delay
-      uint32_t random_byte = Radio.Random() & 0xFF;
-      float random_multiplier = (float)random_byte / 0xFF;
-      uint32_t random_delay =
-          (uint32_t)(random_multiplier * (float)physec_conf.keygen.probe_delay);
-
-      tm_plog(TS_ON, VLEVEL_H, "Waiting for %dms\n\r", random_delay);
-      HAL_Delay(random_delay);
-      UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process),
-                       CFG_SEQ_Prio_0);
-      return;
     } else {
-      char msg[MAX_APP_BUFFER_SIZE * 2 + 1] = {0};
-      hexlify(BufferRx, RxBufferSize, msg, sizeof(msg));
-      tm_plog(TS_ON, VLEVEL_M, "< Invalid PHYsec packet received.\n\r");
-      tm_plog(TS_ON, VLEVEL_H, "RAW = %s\n\r", msg);
-      tm_plog(TS_ON, VLEVEL_H, "Discarding...\n\r");
+      // if the number of the measurements is not sufficient we do
+      // nothing!
+      tm_plog(TS_ON, VLEVEL_H, ">> Need to do more probing! \n\r");
     }
-  go_to_rx:
-    Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
-    break;
-  case TX:
-    Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
-    break;
-  case RX_TIMEOUT:
-  case RX_ERROR:
-    tm_plog(TS_ON, VLEVEL_M, "[Timeout/Error]\r\n");
-    goto handler;
-  case UNRELATED_RX:
-    tm_plog(TS_ON, VLEVEL_M, "[Unrelated Packet]\r\n");
-    goto handler;
-  case TX_FIRST_PROBE:
-    tm_plog(TS_ON, VLEVEL_M, "[First Probe]\r\n");
-  handler:
-    // Handle retransmission in case of Error/Timeout
+  }
 
-    switch (physec_state) {
-    case PHYSEC_STATE_PRE_RECONCILIATION: {
-      if (!physec_conf.keygen.is_master) {
-        physec_packet_t *retrans = build_keygen_slave_done(
-            physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-        Radio.Send((uint8_t *)retrans, physec_packet_get_size(retrans));
-      }
-      break;
+  send_probe(probe_cnt);
+  tm_plog(TS_ON, VLEVEL_M, "> Probe Sent ! (cnt=%u)\n\r", probe_cnt);
+
+  if (!physec_conf.keygen.is_master) {
+    probe_cnt++;
+  }
+}
+
+void PHYsec_Platform_Process_Rx_Keygen(physec_packet_t *rx_packet) {
+  if (physec_state >= PHYSEC_STATE_RECONCILIATION) {
+    // ignore keygen packet if we are in reconciliation state
+    return;
+  }
+
+  physec_keygen_packet_t *kg_pkt = (physec_keygen_packet_t *)&(rx_packet->data);
+  tm_plog(TS_ON, VLEVEL_M, "> Keygen packet received\n\r");
+
+  if (ecdh_state.enabled && !physec_conf.keygen.is_master) {
+    send_public_key();
+  }
+  switch (handle_keygen(kg_pkt, physec_conf.keygen.is_master)) {
+  case KG_QUANT_ERROR: {
+    tm_plog(TS_ON, VLEVEL_M, "Quantization error\n\r");
+    // An error happens during slave quantization
+    if (physec_conf.keygen.is_master) {
+      // go back to probing
+      update_physec_state(PHYSEC_STATE_PROBING);
+      num_quant_try++;
+      num_csi_more = NUM_CSI_MORE_DEFAULT * num_quant_try;
+      send_probe(probe_cnt);
+    } else {
+      // notify master to go back to probing
+      physec_packet_t *packet = build_keygen_error_packet(
+          physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
+      update_physec_state(PHYSEC_STATE_PROBING);
+      Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
     }
-    case PHYSEC_STATE_POST_KEYGEN_SEND: {
-      if (HAL_GetTick() - time_last_pp_send_all > POST_PROCESS_SEND_DELAY_MS) {
-        // Send all indexes if no response (assuming slave did
-        // not receive any chunks)
-        tm_plog(TS_ON, VLEVEL_M, "> Post-Processing (lossy quantization)\n\r");
-        // Add lossy points to KEYGEN vector
-        num_indexes = (num_indexes > NUM_MAX_QUANT_INDEX) ? NUM_MAX_QUANT_INDEX
-                                                          : num_indexes;
-        post_process_send_indexes(ALL_ONES_MASK); // send all indexes chunks
-        time_last_pp_send_all = HAL_GetTick();
+    return;
+  }
+  case KG_DONE: {
+    // send keygen done packet
+    if (ecdh_state.enabled) {
+      update_physec_state(PHYSEC_STATE_KEY_READY);
+      if (physec_conf.keygen.is_master) {
+        uint8_t msg[sizeof(SECRET_MSG) + 1] = {0};
+        UTIL_MEM_cpy_8(msg, SECRET_MSG, sizeof(SECRET_MSG));
+        vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
+                                 AES_KEY_SIZE_IN_BYTES);
+        physec_packet_t *packet = build_encrypted_packet(
+            physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
+            MAX_APP_BUFFER_SIZE);
+        Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
       }
-      break;
-    }
-    case PHYSEC_STATE_POST_KEYGEN_WAIT: {
-      // ask for retransmission of lost chunks
-      tm_plog(TS_ON, VLEVEL_M, "Requesting 0x%x indexes\n\r",
-              (uint16_t)~post_process_rx_chunks);
-      physec_packet_t *packet = build_keygen_retransmission_req_packet(
-          physec_conf.keygen.keygen_id, ~post_process_rx_chunks, BufferTx,
-          MAX_APP_BUFFER_SIZE);
+      return;
+    } else if (physec_conf.keygen.is_master) {
+      physec_packet_t *packet = build_keygen_success_packet_lossy(
+          physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
 
       Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-      HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
+      update_physec_state(PHYSEC_STATE_PRE_RECONCILIATION);
+      num_quant_try = 0;
+    }
+    break;
+  }
+  case KG_PP_SEND_LOST: {
+    tm_plog(TS_ON, VLEVEL_M, "Send quant indexes (lost ones)\n\r");
+    physec_keygen_packet_t *kg_pkt =
+        (physec_keygen_packet_t *)&(rx_packet->data);
+    physec_keygen_retransmission_req_t *retransmission_req =
+        (physec_keygen_retransmission_req_t *)&(kg_pkt->data);
+    post_process_send_indexes(retransmission_req->lost_chunks_bitmap);
+    return;
+  }
+  case KG_PP_SEND_ALL: {
+    if (!physec_conf.keygen.is_master) {
+      tm_plog(TS_ON, VLEVEL_M, "num key bits = %d, num indexes = %d\n\r",
+              physec_key_num_bits, num_indexes);
+      do_post_processing();
+      tm_plog(TS_ON, VLEVEL_M, "num key bits = %d, num indexes = %d\n\r",
+              physec_key_num_bits, num_indexes);
+    }
+    tm_plog(TS_ON, VLEVEL_M, "Send quant indexes (all)\n\r");
+    update_physec_state(PHYSEC_STATE_POST_KEYGEN_SEND);
+    post_process_send_indexes(ALL_ONES_MASK);
+    time_last_pp_send_all = HAL_GetTick();
+    return;
+  }
+  case KG_PP_WAIT_MORE:
+    tm_plog(TS_ON, VLEVEL_M, "Wait for more quant indexes\n\r");
+    update_physec_state(PHYSEC_STATE_POST_KEYGEN_WAIT);
+    return;
+    break;
+    // post processing have been handled, wait for more
+    // data packet
+  case KG_SLAVE_DONE:
+    // bob finished quantizing, we can start reconciliation
+    update_physec_state(PHYSEC_STATE_RECONCILIATION);
+    try_or_retry_recon();
+    return;
+  default:
+    return;
+  }
+
+  if (physec_conf.keygen.is_master) {
+    do_post_processing();
+    if (QUANT_IS_LOSSY(physec_conf.keygen.quant_type)) {
+      if (physec_key_num_bits < REQUIRED_NUM_BITS_PER_KEY) {
+        tm_plog(TS_ON, VLEVEL_L,
+                "Not enough bits after Post Processing (%d bits). "
+                "Resetting...\n\r",
+                physec_key_num_bits);
+        reset_handler(KG_RST_REQ);
+        return;
+      }
+    }
+  }
+  tm_send_key_info(KEY_TYPE_POST_PROCESSING, physec_key, physec_key_num_bits);
+
+  if (!physec_conf.keygen.is_master) {
+    // here we are going to enter in reconciliation.
+    // compute reconciliation vector according to reconciliation type
+    physec_packet_t *packet_kg_done = build_keygen_slave_done(
+        physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
+    update_physec_state(PHYSEC_STATE_PRE_RECONCILIATION);
+    Radio.Send((uint8_t *)packet_kg_done,
+               physec_packet_get_size(packet_kg_done));
+    return;
+  }
+}
+
+void PHYsec_Platform_Process_Rx_Reconciliation(physec_packet_t *rx_packet) {
+  if (!physec_conf.keygen.is_master &&
+      physec_state == PHYSEC_STATE_PRE_RECONCILIATION) {
+    update_physec_state(PHYSEC_STATE_RECONCILIATION);
+  }
+
+  tm_plog(TS_ON, VLEVEL_M, "> Reconciliation packet received:\n\r");
+  physec_recon_packet_t *recon_pkt =
+      (physec_recon_packet_t *)&(rx_packet->data);
+
+  bool success = false;
+  switch (physec_conf.keygen.recon_type) {
+  case RECON_FE_STL:
+    success = fe_stl_reproduce_received_locks(recon_pkt);
+    break;
+  case RECON_PCS:
+  case RECON_ECC_SS:
+  default:
+    // default case without reconciliation for now
+    success = true;
+    UTIL_MEM_cpy_8(recon_key, recon_pkt->data, AES_KEY_SIZE_IN_BYTES);
+    break;
+  }
+  // TODO: Add privacy amplification using ST primitives
+  // tm_send_key_info(KEY_TYPE_PRIVACY_AMPLIFICATION, physec_key,
+  // REQUIRED_NUM_BITS_PER_KEY);
+
+  if (success) {
+    update_physec_state(PHYSEC_STATE_KEY_READY);
+    UTIL_MEM_cpy_8(physec_key, recon_key, AES_KEY_SIZE_IN_BYTES);
+    tm_plog(TS_ON, VLEVEL_L, "Keys successfully reconciliated !\n\r");
+    tm_send_key_info(KEY_TYPE_RECONCILIATION, physec_key,
+                     REQUIRED_NUM_BITS_PER_KEY);
+  } else {
+    tm_plog(TS_ON, VLEVEL_L, " Recon Try Failed !\r\n");
+  }
+  physec_packet_t *pkt = build_recon_result_packet(
+      physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE, success);
+  tm_plog(TS_ON, VLEVEL_M, " Sending recon result (%s)\r\n",
+          success ? "success" : "failure");
+  Radio.Send((uint8_t *)pkt, physec_packet_get_size(pkt));
+}
+
+void PHYsec_Platform_Process_Rx_Reconciliation_Result(
+    physec_packet_t *rx_packet) {
+  physec_recon_result_packet_t *result =
+      (physec_recon_result_packet_t *)&(rx_packet->data);
+  if (result->success) {
+    update_physec_state(PHYSEC_STATE_KEY_READY);
+    UTIL_MEM_cpy_8(physec_key, recon_key, AES_KEY_SIZE_IN_BYTES);
+    tm_send_key_info(KEY_TYPE_RECONCILIATION, physec_key,
+                     REQUIRED_NUM_BITS_PER_KEY);
+
+  } else {
+    if (!try_or_retry_recon()) {
+      reset_handler(KG_RST_REQ);
+    }
+  }
+}
+
+void PHYsec_Platform_Process_Rx_Encrypted(physec_packet_t *rx_packet) {
+  tm_plog(TS_ON, VLEVEL_M, "> Encrypted packet received:\n\r");
+  if (physec_state == PHYSEC_STATE_KEY_READY) {
+    physec_encrypted_packet_t *enc_pkt =
+        (physec_encrypted_packet_t *)&(rx_packet->data);
+
+    uint8_t payload[sizeof(SECRET_MSG) + 1];
+    if (enc_pkt->size != sizeof(SECRET_MSG)) {
+      tm_plog(TS_ON, VLEVEL_M, "Invalid packet size !\n\r");
       return;
     }
-    case PHYSEC_STATE_PROBING: {
-      if (ecdh_state.enabled) {
-        generate_pub_priv_keys();
-        if (physec_conf.keygen.is_master) {
-          send_public_key();
-        }
-        update_physec_state(PHYSEC_STATE_KEYGEN);
-      } else if (physec_conf.keygen.is_master) {
-        /* Send the next PING frame */
-        /* Add delay between RX and TX*/
-        /* add random_delay to force sync between boards after some trials*/
-        // tm_plog(TS_ON, VLEVEL_L, "Master Tx start\n\r");
-        /* master sends PING*/
-
-        // Could not receive probe response, try send back probe_req
-        send_probe(probe_cnt);
-        tm_plog(TS_ON, VLEVEL_M, "< Probe Sent ! (cnt=%u)\n\r", probe_cnt);
-        return;
-
-      } else if (quant_status == QUANT_STATUS_FAILURE) {
-        // if quantization was requested but failed,
-        // then send KeyGen Quant error packet
-        physec_packet_t *packet = build_keygen_error_packet(
-            physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-        Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-      }
-      break;
+    UTIL_MEM_cpy_8(payload, enc_pkt->payload, enc_pkt->size);
+    vigenere_encrypt_decrypt(payload, enc_pkt->size, physec_key,
+                             AES_KEY_SIZE_IN_BYTES);
+    tm_plog(TS_ON, VLEVEL_L, "Decrypted message: %s\n\r", payload);
+    if (memcmp(payload, SECRET_MSG, sizeof(SECRET_MSG)) == 0) {
+      tm_plog(TS_ON, VLEVEL_L, "Secret message successfully decrypted !\n\r");
+    } else {
+      tm_plog(TS_ON, VLEVEL_L, "Decryption failed !\n\r");
     }
-    case PHYSEC_STATE_KEYGEN: {
-      if (ecdh_state.enabled) {
-        /* retransmitting the generated key */
-        Radio.Send(BufferTx,
-                   physec_packet_get_size((physec_packet_t *)BufferTx));
-      } else if (physec_conf.keygen.is_master) {
-        // Send KeyGen start packet for lossless quant
-        // (assuming it was not received by slave)
-        physec_packet_t *packet = build_keygen_success_packet_lossless(
-            physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
-        Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-      }
-
-      break;
-    }
-    case PHYSEC_STATE_RECONCILIATION: {
-      // retransmit current tx buffer !
-      // TODO: check if we are always in the case were BufferTx already contains
-      // our data
-
-      if (physec_conf.keygen.is_master) {
-        Radio.Send(BufferTx,
-                   physec_packet_get_size((physec_packet_t *)BufferTx));
-      } else {
-        Radio.Send(BufferTx,
-                   physec_packet_get_size((physec_packet_t *)BufferTx));
-      }
-      break;
-    }
-    case PHYSEC_STATE_KEY_READY: {
-      if (!physec_conf.keygen.is_master)
-        break;
-      tm_plog(TS_ON, VLEVEL_L, "> Sending encrypted packet\n\r");
-
+    if (physec_conf.keygen.is_master) {
+      reset_handler(USER_BTN);
+    } else {
       uint8_t msg[sizeof(SECRET_MSG) + 1] = {0};
       UTIL_MEM_cpy_8(msg, SECRET_MSG, sizeof(SECRET_MSG));
       vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
@@ -1675,22 +1510,220 @@ keep_going:
       physec_packet_t *packet = build_encrypted_packet(
           physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
           MAX_APP_BUFFER_SIZE);
-
       Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
-      break;
     }
+  }
+}
+
+void PHYsec_Platform_Process_Rx_Reset(physec_packet_t *rx_packet) {
+  tm_plog(TS_ON, VLEVEL_M, "< Reset Packet Received:\n\r");
+  physec_reset_packet_t *rst_pck = (physec_reset_packet_t *)&rx_packet->data;
+
+  if (!rst_pck->ack)
+    reset_handler(RECV_RST);
+  else
+    random_delay = (Radio.Random()) >> 22;
+}
+
+void PHYsec_Platform_Process_Rx(void) {
+  physec_packet_validity_e packet_validity =
+      physec_validate_packet(BufferRx, RxBufferSize);
+  if (packet_validity == PHYSEC_VALID_PACKET) {
+    tm_plog(TS_ON, VLEVEL_H, "=== PHYsec packet received ===\n\r");
+    physec_packet_t *rx_packet = (physec_packet_t *)BufferRx;
+
+    switch (rx_packet->type) {
+    case PHYSEC_PACKET_TYPE_PROBE:
+      PHYsec_Platform_Process_Rx_Probe(rx_packet);
+      break;
+    case PHYSEC_PACKET_TYPE_KEYGEN:
+      PHYsec_Platform_Process_Rx_Keygen(rx_packet);
+      break;
+    case PHYSEC_PACKET_TYPE_RECONCILIATION:
+      PHYsec_Platform_Process_Rx_Reconciliation(rx_packet);
+      break;
+    case PHYSEC_PACKET_TYPE_RECONCILIATION_RESULT:
+      PHYsec_Platform_Process_Rx_Reconciliation_Result(rx_packet);
+      break;
+    case PHYSEC_PACKET_TYPE_ENCRYPTED:
+      PHYsec_Platform_Process_Rx_Encrypted(rx_packet);
+      break;
+    case PHYSEC_PACKET_TYPE_RESET:
+      PHYsec_Platform_Process_Rx_Reset(rx_packet);
+      break;
     default:
+      tm_plog(TS_ON, VLEVEL_M, "Unknown Packet Type %d\n\r", rx_packet->type);
       break;
     }
-    Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
+  } else if (packet_validity == PHYSEC_UNRELATED_PACKET) {
+    tm_plog(TS_ON, VLEVEL_H, "< Unrelated PHYsec packet received.\n\r");
+    // reentry
+    State = UNRELATED_RX;
+    // random small delay
+    uint32_t random_byte = Radio.Random() & 0xFF;
+    float random_multiplier = (float)random_byte / 0xFF;
+    uint32_t random_delay =
+        (uint32_t)(random_multiplier * (float)physec_conf.keygen.probe_delay);
+
+    tm_plog(TS_ON, VLEVEL_H, "Waiting for %dms\n\r", random_delay);
+    HAL_Delay(random_delay);
+    UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_SubGHz_Phy_App_Process),
+                     CFG_SEQ_Prio_0);
+  } else {
+    char msg[MAX_APP_BUFFER_SIZE * 2 + 1] = {0};
+    hexlify(BufferRx, RxBufferSize, msg, sizeof(msg));
+    tm_plog(TS_ON, VLEVEL_M, "< Invalid PHYsec packet received.\n\r");
+    tm_plog(TS_ON, VLEVEL_H, "RAW = %s\n\r", msg);
+    tm_plog(TS_ON, VLEVEL_H, "Discarding...\n\r");
+  }
+}
+
+void PHYsec_Platform_Process_Retrans(void) {
+  // Handle retransmission in case of Error/Timeout
+  switch (physec_state) {
+  case PHYSEC_STATE_PRE_RECONCILIATION: {
+    if (!physec_conf.keygen.is_master) {
+      physec_packet_t *retrans = build_keygen_slave_done(
+          physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
+      Radio.Send((uint8_t *)retrans, physec_packet_get_size(retrans));
+    }
+    break;
+  }
+  case PHYSEC_STATE_POST_KEYGEN_SEND: {
+    if (HAL_GetTick() - time_last_pp_send_all > POST_PROCESS_SEND_DELAY_MS) {
+      // Send all indexes if no response (assuming slave did
+      // not receive any chunks)
+      tm_plog(TS_ON, VLEVEL_M, "> Post-Processing (lossy quantization)\n\r");
+      // Add lossy points to KEYGEN vector
+      num_indexes = (num_indexes > NUM_MAX_QUANT_INDEX) ? NUM_MAX_QUANT_INDEX
+                                                        : num_indexes;
+      post_process_send_indexes(ALL_ONES_MASK); // send all indexes chunks
+      time_last_pp_send_all = HAL_GetTick();
+    }
+    break;
+  }
+  case PHYSEC_STATE_POST_KEYGEN_WAIT: {
+    // ask for retransmission of lost chunks
+    tm_plog(TS_ON, VLEVEL_M, "Requesting 0x%x indexes\n\r",
+            (uint16_t)~post_process_rx_chunks);
+    physec_packet_t *packet = build_keygen_retransmission_req_packet(
+        physec_conf.keygen.keygen_id, ~post_process_rx_chunks, BufferTx,
+        MAX_APP_BUFFER_SIZE);
+
+    Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
+    HAL_Delay(Radio.GetWakeupTime() + RX_TIME_MARGIN);
+    return;
+  }
+  case PHYSEC_STATE_PROBING: {
+    if (ecdh_state.enabled) {
+      generate_pub_priv_keys();
+      if (physec_conf.keygen.is_master) {
+        send_public_key();
+      }
+      update_physec_state(PHYSEC_STATE_KEYGEN);
+    } else if (physec_conf.keygen.is_master) {
+      /* Send the next PING frame */
+      /* Add delay between RX and TX*/
+      /* add random_delay to force sync between boards after some trials*/
+      // tm_plog(TS_ON, VLEVEL_L, "Master Tx start\n\r");
+      /* master sends PING*/
+
+      // Could not receive probe response, try send back probe_req
+      send_probe(probe_cnt);
+      tm_plog(TS_ON, VLEVEL_M, "< Probe Sent ! (cnt=%u)\n\r", probe_cnt);
+      return;
+
+    } else if (quant_status == QUANT_STATUS_FAILURE) {
+      // if quantization was requested but failed,
+      // then send KeyGen Quant error packet
+      physec_packet_t *packet = build_keygen_error_packet(
+          physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
+      Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
+    }
+    break;
+  }
+  case PHYSEC_STATE_KEYGEN: {
+    if (ecdh_state.enabled) {
+      /* retransmitting the generated key */
+      Radio.Send(BufferTx, physec_packet_get_size((physec_packet_t *)BufferTx));
+    } else if (physec_conf.keygen.is_master) {
+      // Send KeyGen start packet for lossless quant
+      // (assuming it was not received by slave)
+      physec_packet_t *packet = build_keygen_success_packet_lossless(
+          physec_conf.keygen.keygen_id, BufferTx, MAX_APP_BUFFER_SIZE);
+      Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
+    }
 
     break;
-  case TX_TIMEOUT:
+  }
+  case PHYSEC_STATE_RECONCILIATION: {
+    if (physec_conf.keygen.is_master) {
+      Radio.Send(BufferTx, physec_packet_get_size((physec_packet_t *)BufferTx));
+    } else {
+      Radio.Send(BufferTx, physec_packet_get_size((physec_packet_t *)BufferTx));
+    }
+    break;
+  }
+  case PHYSEC_STATE_KEY_READY: {
+    if (!physec_conf.keygen.is_master)
+      break;
+    tm_plog(TS_ON, VLEVEL_L, "> Sending encrypted packet\n\r");
+
+    uint8_t msg[sizeof(SECRET_MSG) + 1] = {0};
+    UTIL_MEM_cpy_8(msg, SECRET_MSG, sizeof(SECRET_MSG));
+    vigenere_encrypt_decrypt(msg, sizeof(SECRET_MSG), physec_key,
+                             AES_KEY_SIZE_IN_BYTES);
+    physec_packet_t *packet = build_encrypted_packet(
+        physec_conf.keygen.keygen_id, msg, sizeof(SECRET_MSG), BufferTx,
+        MAX_APP_BUFFER_SIZE);
+
+    Radio.Send((uint8_t *)packet, physec_packet_get_size(packet));
+    break;
+  }
+  default:
+    break;
+  }
+}
+
+void PHYsec_Platform_Process(void) {
+  Radio.Sleep();
+
+  PHYsec_Platform_Process_Handler_Result_t post_reset_handler_action =
+      PHYsec_Platform_Process_Reset();
+  if (post_reset_handler_action == GoToRx) {
     Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
+    return;
+  }
+
+  switch (State) {
+  case RX:
+    PHYsec_Platform_Process_Rx();
+    break;
+  case TX:
+    /* nothing to do, just go to rx */
+    break;
+  case RX_TIMEOUT:
+    tm_plog(TS_ON, VLEVEL_M, "[Rx Error]\n\r");
+    goto handler;
+  case RX_ERROR:
+    tm_plog(TS_ON, VLEVEL_M, "[Rx Timeout]\r\n");
+    goto handler;
+  case UNRELATED_RX:
+    tm_plog(TS_ON, VLEVEL_M, "[Unrelated Packet]\r\n");
+    goto handler;
+  case FIRST_PROBE:
+    tm_plog(TS_ON, VLEVEL_M, "[First Probe]\r\n");
+    goto handler;
+  case TX_TIMEOUT:
+    tm_plog(TS_ON, VLEVEL_M, "[Tx Timeout]\n\r");
+    goto handler;
+  handler:
+    PHYsec_Platform_Process_Retrans();
     break;
   default:
     break;
   }
+  Radio.Rx(RX_TIMEOUT_VALUE + random_delay);
 }
 
 static void OnledEvent(void *context) {
