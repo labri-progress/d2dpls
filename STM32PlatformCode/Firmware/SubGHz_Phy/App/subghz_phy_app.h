@@ -142,6 +142,7 @@ extern "C" {
 
 /* PHYsec defines */
 #define POST_PROCESS_SEND_DELAY_MS (10000)
+#define ECC_BUFFER_LEN (2000) // used to construct ECC buffers
 
 #define QUANT_SB_EXCURSION_MAX_M 8 // fully arbitrary
 #define QUANT_SB_EXCURSION_M 3     // MODIFY THIS TO CHANGE

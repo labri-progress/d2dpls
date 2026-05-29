@@ -118,8 +118,6 @@ struct {
   bool kg_end_signal_sent;
 } trigger_signals = {0};
 
-/* related to ECDH */
-#define ECC_BUFFER_LEN (2000) // used to construct ECC
 /* struct handling the whole ECDH context */
 struct {
   /* related to internal cmox ctx */
