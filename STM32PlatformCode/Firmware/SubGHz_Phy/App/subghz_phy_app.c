@@ -1704,10 +1704,10 @@ void PHYsec_Platform_Process(void) {
   case TX:
     /* nothing to do, just go to rx */
     break;
-  case RX_TIMEOUT:
+  case RX_ERROR:
     tm_plog(TS_ON, VLEVEL_M, "[Rx Error]\n\r");
     goto handler;
-  case RX_ERROR:
+  case RX_TIMEOUT:
     tm_plog(TS_ON, VLEVEL_M, "[Rx Timeout]\r\n");
     goto handler;
   case UNRELATED_RX:
@@ -1744,7 +1744,7 @@ void reset_physec_states(bool first_reset) {
   if (!first_reset) {
     tm_plog(TS_ON, VLEVEL_M, "Performing Reset !\r\n");
   }
-  update_physec_state(PHYSEC_STATE_PROBING);
+  physec_state = PHYSEC_STATE_PROBING;
 
   physec_key_num_bits = 0;
 
