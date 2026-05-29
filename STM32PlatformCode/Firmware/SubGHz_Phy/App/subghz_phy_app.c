@@ -219,6 +219,7 @@ static void update_physec_state(physec_state_t next_state) {
     if (!trigger_signals.start_signal_sent) {
       trigger_signals.start_signal_sent = true;
       HAL_GPIO_SIGNAL_TRIGGER(TRIGGER_DURATION_CYCLES);
+      tm_plog(TS_ON, VLEVEL_L, "[trigger signal]: probing\n\r");
     }
     break;
   case PHYSEC_STATE_KEYGEN:
@@ -227,6 +228,7 @@ static void update_physec_state(physec_state_t next_state) {
     if (!trigger_signals.quant_signal_sent) {
       trigger_signals.quant_signal_sent = true;
       HAL_GPIO_SIGNAL_TRIGGER(TRIGGER_DURATION_CYCLES);
+      tm_plog(TS_ON, VLEVEL_L, "[trigger signal]: keygen\n\r");
     }
     break;
   case PHYSEC_STATE_PRE_RECONCILIATION:
@@ -234,12 +236,14 @@ static void update_physec_state(physec_state_t next_state) {
     if (!trigger_signals.recon_signal_sent) {
       trigger_signals.recon_signal_sent = true;
       HAL_GPIO_SIGNAL_TRIGGER(TRIGGER_DURATION_CYCLES);
+      tm_plog(TS_ON, VLEVEL_L, "[trigger signal]: reconciliation\n\r");
     }
     break;
   case PHYSEC_STATE_KEY_READY:
     if (!trigger_signals.kg_end_signal_sent) {
       trigger_signals.kg_end_signal_sent = true;
       HAL_GPIO_SIGNAL_TRIGGER(TRIGGER_DURATION_CYCLES);
+      tm_plog(TS_ON, VLEVEL_L, "[trigger signal]: key ready\n\r");
     }
     break;
   }
