@@ -385,7 +385,7 @@ impl Extractor {
             Ok((participant, first_keygen_end.end()))
         } else {
             Err(ExtractorError::DataNotFound(format!(
-                "keygen start or end for {participant_name}"
+                "keygen start or end for {participant_name}, start: {first_keygen_start:#?}; end: {first_keygen_end:#?}"
             )))
         }
     }
@@ -441,7 +441,9 @@ impl Extractor {
                     cur_alice = new_cur_alice;
                     cur_bob = new_cur_bob;
                 }
-                _ => eprintln!("error extracting experience {}", exp_idx + 1),
+                (Err(a), Err(b)) => eprintln!("error extracting experience {} {:#?}/{:#?}", exp_idx + 1, a, b),
+                (Err(a), _) => eprintln!("error extracting experience {} {:#?}", exp_idx + 1, a),
+                (_, Err(b)) => eprintln!("error extracting experience {} {:#?}", exp_idx + 1, b),
             }
         }
         Ok(keygens_run_lines)

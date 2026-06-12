@@ -1,5 +1,5 @@
 use nom::{
-    number::streaming::{le_u16, le_u32},
+    number::streaming::{le_i16, le_u32},
     IResult,
 };
 
@@ -8,7 +8,7 @@ use super::PHYsecPayload;
 #[derive(Debug)]
 pub struct CSIPacket {
     pub num_csi: u32,
-    pub csis: Vec<u16>,
+    pub csis: Vec<i16>,
 }
 
 impl PHYsecPayload for CSIPacket {
@@ -41,7 +41,7 @@ impl PHYsecPayload for CSIPacket {
         let mut csis = Vec::new();
         let mut ptr: &[u8] = &input[..];
         for i in 0..num_csi {
-            let (rem, csi) = le_u16(ptr).map_err(|e| match e {
+            let (rem, csi) = le_i16(ptr).map_err(|e| match e {
                 nom::Err::Failure(nom::error::Error {
                     input,
                     code: nom::error::ErrorKind::Eof,

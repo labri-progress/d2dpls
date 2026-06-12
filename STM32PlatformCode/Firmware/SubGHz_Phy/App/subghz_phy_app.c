@@ -947,9 +947,11 @@ int handle_probe(physec_probe_packet_t *probe_resp, bool is_master) {
     } else if (probe_resp_cnt != probe_cnt) {
       tm_plog(TS_ON, VLEVEL_L, "Unrecoverable probe error");
       return 0;
-    } if (probe_cnt == 0) {
-      tm_plog(TS_ON, VLEVEL_L, "[First Probe]");
     }
+  }
+
+  if (probe_cnt == 0) {
+    tm_plog(TS_ON, VLEVEL_L, "[First Probe]");
   }
 
   size_t kept_rssi = 0;

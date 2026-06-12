@@ -16,9 +16,6 @@ pub enum PHYsecTelemetryKeyType {
     KeyTypePostProcessing = KEY_TYPE_POST_PROCESSING,
     KeyTypeReconciliation = KEY_TYPE_RECONCILIATION,
     KeyTypePrivacyAmplification = KEY_TYPE_PRIVACY_AMPLIFICATION,
-    KeyTypeECDHPublicPrivate = KEY_TYPE_ECDH_PUBLIC_PRIVATE_KEYS,
-    KeyTypeECDHPeerPublicKey = KEY_TYPE_ECDH_PEER_PUBLIC_KEY,
-    KeyTypeECDHSharedSecret = KEY_TYPE_ECDH_SHARED_SECRET,
 }
 
 impl TryFrom<u8> for PHYsecTelemetryKeyType {
@@ -30,9 +27,6 @@ impl TryFrom<u8> for PHYsecTelemetryKeyType {
             KEY_TYPE_POST_PROCESSING => PHYsecTelemetryKeyType::KeyTypePostProcessing,
             KEY_TYPE_RECONCILIATION => PHYsecTelemetryKeyType::KeyTypeReconciliation,
             KEY_TYPE_PRIVACY_AMPLIFICATION => PHYsecTelemetryKeyType::KeyTypePrivacyAmplification,
-            KEY_TYPE_ECDH_PUBLIC_PRIVATE_KEYS => PHYsecTelemetryKeyType::KeyTypeECDHPublicPrivate,
-            KEY_TYPE_ECDH_PEER_PUBLIC_KEY => PHYsecTelemetryKeyType::KeyTypeECDHPeerPublicKey,
-            KEY_TYPE_ECDH_SHARED_SECRET => PHYsecTelemetryKeyType::KeyTypeECDHSharedSecret,
             _ => return Err(()),
         })
     }
@@ -146,9 +140,6 @@ impl PHYsecTelemetry for TelemetryKeyGenInfo {
             PHYsecTelemetryKeyType::KeyTypePostProcessing => "Post-processing",
             PHYsecTelemetryKeyType::KeyTypeReconciliation => "Reconciliation",
             PHYsecTelemetryKeyType::KeyTypePrivacyAmplification => "Privacy Amplification",
-            PHYsecTelemetryKeyType::KeyTypeECDHPublicPrivate => "ECDH Public/Private",
-            PHYsecTelemetryKeyType::KeyTypeECDHPeerPublicKey => "ECDH Peer Public",
-            PHYsecTelemetryKeyType::KeyTypeECDHSharedSecret => "ECDH Shared Secret",
         };
         format!("{} = {:02x?}", format!("{} Key", key_name), self.key)
     }
