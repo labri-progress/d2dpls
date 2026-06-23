@@ -761,6 +761,7 @@ static int handle_keygen(physec_keygen_packet_t *kg_pkt, bool master) {
       quant_status = QUANT_STATUS_FAILURE;
       return KG_QUANT_ERROR;
     }
+    update_physec_state(PHYSEC_STATE_KEYGEN);
     tm_plog(TS_ON, VLEVEL_L, "CSI handle keygen:\r\n");
     tm_send_csis(csi_measures, num_csi);
     tm_plog(TS_ON, VLEVEL_M, "> Keygen Done ! (%d bits)\n\r",
