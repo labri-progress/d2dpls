@@ -42,7 +42,30 @@ int pre_process_savitsky_golay(csi_t *csis, size_t num_csi) {
 }
 
 int pre_process_kalman(csi_t *csis, size_t num_csi) {
-  // TODO: implement kalman C version from matlab one
+  csi_t x = csis[0];
+  float a = 1.0;
+  float q = 0.01;
+  float r = 0.5;
+  float p = 15.0;
+  float k;
+
+  for (int i = 0; i < num_csi; i++)
+    {
+
+        // Prediction
+        x = a * x;
+        p = a * p * a + q;
+
+        // gain
+        k = p / (p + r);
+
+        // correction
+        x = x + k * (csis[i] - x);
+        p = (1 - k) * p;
+
+        csis[i] = x;
+    }
+
   return 0;
 }
 
