@@ -99,7 +99,7 @@ int pre_process_random_waypoint_model(csi_t *csis, size_t num_csi) {
   return 0;
 }
 
-int pre_process_discrete_cosign_transform(csi_t * csis, size_t num_csi){
+int pre_process_discrete_cosine_transform(csi_t * csis, size_t num_csi){
     float * tmp = malloc(sizeof(float)* num_csi);
 
     // First DCT

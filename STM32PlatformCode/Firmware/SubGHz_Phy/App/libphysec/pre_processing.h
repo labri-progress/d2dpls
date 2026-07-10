@@ -16,7 +16,7 @@ typedef enum __attribute__((__packed__)) {
   PREPROCESS_SAVITSKY_GOLAY = 1 | NOT_IMPLEMENTED,
   PREPROCESS_KALMAN = 2 | NOT_IMPLEMENTED,
   PREPROCESS_RANDOM_WAYPOINT_MODEL = 3 | NOT_IMPLEMENTED,
-  PREPROCESS_DISCRETE_COSIGN_TRANSFORM = 4,
+  PREPROCESS_DISCRETE_COSINE_TRANSFORM = 4 | NOT_IMPLEMENTED,
   PREPROCESS_NUM_TYPE = 5
 
 } preprocess_type_t;
@@ -30,4 +30,4 @@ int pre_process_kalman(csi_t *csis, size_t num_csi);
 
 int pre_process_random_waypoint_model(csi_t *csis, size_t num_csi);
 
-int pre_process_random_waypoint_model(csi_t *csis, size_t num_csi);
+int pre_process_discrete_cosine_transform(csi_t * csis, size_t num_csi);
