@@ -37,7 +37,8 @@ Processing method applied to acquisition data before quantization; if any.
 - `PREPROCESS_SAVITSKY_GOLAY`: 129 (Not Implemented Yet)
 - `PREPROCESS_KALMAN`: 130 (Not Implemented Yet)
 - `PREPROCESS_RANDOM_WAYPOINT_MODEL`: 131 (Not Implemented Yet)
-- `PREPROCESS_NUM_TYPE`: 4
+- `PREPROCESS_DISCRETE_COSIGN_TRANSFORM`: 4
+- `PREPROCESS_NUM_TYPE`: 5
 
 ### Supported quantization methods:
 

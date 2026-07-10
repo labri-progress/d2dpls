@@ -98,3 +98,49 @@ int pre_process_random_waypoint_model(csi_t *csis, size_t num_csi) {
 
   return 0;
 }
+
+int pre_process_discrete_cosign_transform(csi_t * csis, size_t num_csi){
+    float * tmp = malloc(sizeof(float)* num_csi);
+
+    // First DCT
+    float alpha;
+    float Ck;
+    for(int k = 0; k<num_csi; k++){
+        if (k == 0){
+            alpha = sqrt(1.0/num_csi);
+        } else {
+            alpha = sqrt(2.0/num_csi);
+        }
+        Ck = 0.0;
+        for(int n = 0; n<num_csi; n++){
+            Ck += csis[n] * cos((PI/num_csi) * (n + 0.5) * k);
+        }
+        tmp[k] = alpha*Ck;
+    }
+
+    // Cut
+    for(int i = 0; i<num_csi; i++){
+
+        if(i >= num_csi/DISCRETE_COS_TRANS_CUT){
+            tmp[i] = 0;
+        }
+    }
+
+    // Inv DCT
+    for(int n = 0; n<num_csi; n++){
+        Ck = 0.0;
+        for(int k = 0; k < (num_csi); k++){
+            if (k == 0){
+                alpha = sqrt(1.0/num_csi);
+            } else {
+                alpha = sqrt(2.0/num_csi);
+            }
+        Ck += alpha * tmp[k] * cos((PI/num_csi) * (n + 0.5) * k);
+        }
+        csis[n] = Ck;
+    }
+
+    free(tmp);
+
+    return 0;
+}
