@@ -2,7 +2,7 @@
 
 ## Original Paper and Citation
 
-The associated publication in IEEE Communication Magazine can be found [here](https://hal.science/hal-05761733v1/document). 
+The associated publication in IEEE Communication Magazine can be found [here](https://hal.science/hal-05761733v1/document), along with its [bibtex snippet](https://hal.science/hal-05761733v1/bibtex). 
 
 ## Repository structure
 
