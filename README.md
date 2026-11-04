@@ -1,5 +1,9 @@
 # README
 
+## Original Paper and Citation
+
+The associated publication in IEEE Communication magazine can be found [here](https://hal.science/hal-05761733v1/document) and the bibtex [citation](https://github.com/labri-progress/d2dpls/CITATION.cff). 
+
 ## Repository structure
 
 - `STM32PlatformCode` : workspace containing the project, driver code, etc.
